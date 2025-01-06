@@ -4,18 +4,28 @@ import pymysql
 import jwt
 import datetime
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi.responses import RedirectResponse
-from requests_oauthlib import OAuth2Session
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-import time
-import os
 from passlib.context import CryptContext
+from requests_oauthlib import OAuth2Session
+import os
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def load_env():
+    """Cargar las variables de entorno desde el archivo .env"""
+    load_dotenv()
 
+# Cargar variables de entorno
+load_env()
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+GOOGLE_AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_USER_INFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 
-db = pymysql.connect(
+db_connection = pymysql.connect(
     host="localhost",
     user="root",
     password="root",
@@ -23,242 +33,126 @@ db = pymysql.connect(
     port=3306
 )
 
-app = FastAPI(
-    title="Authentication API",
-    description="API for user authentication and favorite lanes management.",
-    version="1.0.0",
-    docs_url="/docs",  # Path for Swagger documentation
-    redoc_url="/redoc",  # Path for ReDoc documentation
-)
+# Inicializar FastAPI
+app = FastAPI()
 
-# Add CORS middleware
+# Contexto para manejo de contraseñas
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Manejo de seguridad OAuth2
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
+
+# Middleware de CORS para permitir peticiones desde otras aplicaciones
+origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Modelo Pydantic para el registro y login de usuarios
+# Modelos Pydantic
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    username: str | None = None
+
 class User(BaseModel):
-    name: str
     username: str
     password: str
 
-
-# Load environment variables
-load_dotenv()
-
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-SECRET_KEY = os.getenv("SECRET_KEY")
-GOOGLE_REDIRECT_URI = "http://localhost:3000/auth/google/callback"
-AUTHORIZATION_BASE_URL = "https://accounts.google.com/o/oauth2/auth"
-TOKEN_URL = "https://oauth2.googleapis.com/token"
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-# Función para hashear la contraseña
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
-
-# Función para verificar la contraseña
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
- 
-# Función para crear un token JWT
-def create_jwt_token(data: dict):
-    expiration = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-    data.update({"exp": expiration})
-    token = jwt.encode(data, SECRET_KEY, algorithm="HS256")
-    return token
-
-# Ruta para iniciar el flujo de autenticación con Google
-@app.get("/auth/google")
-async def google_login():
-    google = OAuth2Session(GOOGLE_CLIENT_ID, redirect_uri=GOOGLE_REDIRECT_URI, scope=["openid", "email", "profile"])
-    authorization_url, _ = google.authorization_url(AUTHORIZATION_BASE_URL, access_type="offline", prompt="select_account")
-    return {"authorization_url": authorization_url}
-
-# Ruta de callback para manejar la respuesta de Google
-@app.get("/auth/google/callback")
-async def google_callback(code: str):
-    google = OAuth2Session(GOOGLE_CLIENT_ID, redirect_uri=GOOGLE_REDIRECT_URI)
-    token = google.fetch_token(TOKEN_URL, client_secret=GOOGLE_CLIENT_SECRET, code=code)
-
-    # Obtener información del usuario
-    user_info = google.get("https://www.googleapis.com/oauth2/v1/userinfo").json()
-    
-    # Manejar la lógica de registro/inicio de sesión en la base de datos
-    cursor = db.cursor()
-    
-    # Verificar si el usuario ya existe
-    query = "SELECT * FROM user WHERE username=%s"
-    cursor.execute(query, (user_info["email"],))
-    user = cursor.fetchone()
-
-    if not user:
-        # Si el usuario no existe, registrar uno nuevo
-        insert_query = "INSERT INTO user (name, username, password) VALUES (%s, %s, %s)"
-        cursor.execute(insert_query, (user_info["name"], user_info["email"], ""))
-        db.commit()
-
-    cursor.close()
-
-    # Generar un token JWT para el usuario
-    jwt_token = create_jwt_token({"sub": user_info["email"]})
-    return {"access_token": jwt_token, "token_type": "bearer"}
-
-# Ruta para generar el token JWT
-@app.post("/auth/token")
-async def generate_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    cursor = db.cursor()
-    
-    # Buscar el usuario en la base de datos
-    query = "SELECT * FROM user WHERE username=%s"
-    cursor.execute(query, (form_data.username,))
-    user = cursor.fetchone()
-    cursor.close()
-
-    # Verificar si el usuario existe y si la contraseña es correcta
-    if not user or not verify_password(form_data.password, user[3]):
-        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
-
-    # Generar el token JWT
-    token = create_jwt_token({"sub": user[2]})
-    return {"access_token": token, "token_type": "bearer"}
-
-# Route to register a new user
-@app.post("/auth/register")
-async def register(user_data: User):
-    cursor = db.cursor()
-    
-    # Check if the user already exists in the database
-    query = "SELECT * FROM user WHERE username=%s"
-    cursor.execute(query, (user_data.username,))
-    existing_user = cursor.fetchone()
-
-    if existing_user:
-        cursor.close()
-        raise HTTPException(status_code=400, detail="User already exists")
-    
-    # Hash the password
-    hashedPassword = hash_password(user_data.password)
-
-    # Insert the new user into the database
-    insert_query = "INSERT INTO user (name, username, password) VALUES (%s, %s, %s)"
-    cursor.execute(insert_query, (user_data.name, user_data.username, hashedPassword))
-    
-    db.commit()
-    cursor.close()
-    
-    return {"message": "User registered successfully"}
-
-# Route to logout the user
-@app.post("/auth/logout")
-async def logout(token: str = Depends(oauth2_scheme)):
-    return {"message": "User logged out successfully"}
-
-# Function to get the current user
-async def getCurrentUser(token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        username = payload.get("sub")
-        if username is None:
-            raise HTTPException(status_code=401, detail="Credencial inválida")
-        return username
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Credencial inválida")
-    
-# Route to get the current user
-@app.get("/auth/users/me")
-async def read_users_me(current_user: str = Depends(getCurrentUser)):
-    return {"username": current_user}
-
 class AddFavoriteBook(BaseModel):
-    road: str # The name of the road to add to the user's favorites
+    book: str  # Nombre del libro para agregar a favoritos
 
 class DeleteFavoriteBook(BaseModel):
-    road: str # The name of the road to delete from the user's favorites
+    book: str  # Nombre del libro para eliminar de favoritos
 
-class FavoriteBook(BaseModel):
-    roadID: str 
+# Funciones auxiliares
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
 
-# Route to add a favorite book to the user
-@app.post("/auth/favorite-books/add")
-async def add_favorite_book(
-        favorite_road: AddFavoriteBook,
-        current_user: str = Depends(getCurrentUser)
-    ):
-        cursor = db.cursor()
-        
-        # Check if the book is already a favorite
-        query = "SELECT * FROM favoriteBooks WHERE username=%s AND bookID=%s"
-        cursor.execute(query, (current_user, favorite_book.book))
-        existing_favorite = cursor.fetchone()
+def get_password_hash(password):
+    return pwd_context.hash(password)
 
-        if existing_favorite:
-            cursor.close()
-            raise HTTPException(status_code=400, detail="The book is already a favorite")
+def create_access_token(data: dict, expires_delta: datetime.timedelta | None = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.datetime.utcnow() + datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-        # Add the book to the user's favorites
-        insert_query = "INSERT INTO favoriteBooks (username, bookID) VALUES (%s, %s)"
-        cursor.execute(insert_query, (current_user, favorite_book.book))
-        
-        db.commit()
-        cursor.close()
-        
-        return {"message": "Book added to favorites successfully"}
+def get_google_auth_session():
+    return OAuth2Session(
+        client_id=GOOGLE_CLIENT_ID,
+        redirect_uri="http://localhost:8000/google/callback",
+        scope=["openid", "email", "profile"]
+    )
 
-# Route to delete a favorite book from the user
-@app.delete("/auth/favorite-books/delete")
-async def delete_favorite_book(
-        favorite_road: DeleteFavoriteBook,
-        current_user: str = Depends(getCurrentUser)
-    ):
-        cursor = db.cursor()
-        
-        # Delete the book from the user's favorites
-        delete_query = "DELETE FROM favoriteBooks WHERE username=%s AND bookID=%s"
-        cursor.execute(delete_query, (current_user, favorite_book.book))
-        
-        db.commit()
-        cursor.close()
-        
-        return {"message": "Road deleted from favorites successfully"}
+# Autenticación con Google
+@app.get("/google/login")
+async def google_login():
+    google = get_google_auth_session()
+    authorization_url, _ = google.authorization_url(GOOGLE_AUTHORIZATION_URL, access_type="offline")
+    return {"authorization_url": authorization_url}
 
-# Route to get all the favorite books of the user
-@app.get("/auth/favorite-books/all", response_model=list)
-async def get_all_favorite_books(current_user: str = Depends(getCurrentUser)):
-    cursor = db.cursor()
-    
-    # Get all the favorite books of the user
-    query = "SELECT bookID, username FROM favoriteBooks WHERE username=%s"
-    cursor.execute(query, (current_user,))
-    favorite_books = cursor.fetchall()
-    
-    cursor.close()
-    
-    return favorite_books
+@app.get("/google/callback")
+async def google_callback(code: str):
+    google = get_google_auth_session()
+    token = google.fetch_token(
+        GOOGLE_TOKEN_URL,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        code=code
+    )
+    google = OAuth2Session(GOOGLE_CLIENT_ID, token=token)
+    user_info = google.get(GOOGLE_USER_INFO_URL).json()
 
-@app.post("/auth/favorite-books/check")
-async def check_favorite_book(
-    road: FavoriteBook,
-    current_user: str = Depends(getCurrentUser)
-):
-    cursor = db.cursor()
-    
-    # Check if the book is a favorite
-    query = "SELECT * FROM favoriteBooks WHERE username=%s AND bookID=%s"
-    cursor.execute(query, (current_user, book.bookID))
-    favorite_book = cursor.fetchone()
-    
-    cursor.close()
-    
-    # Return true if an element is found, false otherwise
-    return {"isFavorite": favorite_book is not None}
+    # Manejo del usuario en la base de datos
+    username = user_info.get("email")
+    cursor = db_connection.cursor()
+    cursor.execute("SELECT username FROM users WHERE username = %s", (username,))
+    user = cursor.fetchone()
+    if not user:
+        cursor.execute("INSERT INTO users (username) VALUES (%s)", (username,))
+        db_connection.commit()
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    access_token = create_access_token(data={"sub": username})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+# Rutas para manejo de favoritos
+@app.post("/favorites/add")
+async def add_favorite_book(favorite: AddFavoriteBook, token: str = Depends(oauth2_scheme)):
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    username = payload.get("sub")
+    if username is None:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    cursor = db_connection.cursor()
+    cursor.execute("INSERT INTO favorites (username, book) VALUES (%s, %s)", (username, favorite.book))
+    db_connection.commit()
+    return {"message": f"Book '{favorite.book}' added to favorites."}
+
+@app.delete("/favorites/delete")
+async def delete_favorite_book(favorite: DeleteFavoriteBook, token: str = Depends(oauth2_scheme)):
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    username = payload.get("sub")
+    if username is None:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    cursor = db_connection.cursor()
+    cursor.execute("DELETE FROM favorites WHERE username = %s AND book = %s", (username, favorite.book))
+    db_connection.commit()
+    return {"message": f"Book '{favorite.book}' removed from favorites."}
+
+@app.get("/favorites")
+async def get_favorite_books(token: str = Depends(oauth2_scheme)):
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    username = payload.get("sub")
+    if username is None:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    cursor = db_connection.cursor()
+    cursor.execute("SELECT book FROM favorites WHERE username = %s", (username,))
+    favorites = cursor.fetchall()
+    return {"favorites": [f[0] for f in favorites]}
