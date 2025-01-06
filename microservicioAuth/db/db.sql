@@ -1,30 +1,26 @@
-
--- Comprobar si existe la base de datos y eliminarla si es necesario
+-- Crear la base de datos (si no existe)
 DROP DATABASE IF EXISTS bookweb;
-
--- Crear la base de datos bookweb
 CREATE DATABASE bookweb;
 
--- Usar la base de datos bookweb
+-- Usar la base de datos
 USE bookweb;
 
--- Comprobar si existe la tabla user y eliminarla si es necesario
-DROP TABLE IF EXISTS user;
+-- Crear la tabla de usuarios
+DROP TABLE IF EXISTS users;
 
--- Crear la tabla user
-CREATE TABLE user (
+CREATE TABLE users (
     id INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
     name VARCHAR(45) NOT NULL,
-    username VARCHAR(45) NOT NULL,
-    password VARCHAR(100) NOT NULL
+    username VARCHAR(45) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL
 );
 
--- Comprobar si existe la tabla favoriteBooks y eliminarla si es necesario
-DROP TABLE IF EXISTS favoriteBooks;
+-- Crear la tabla de favoritos
+DROP TABLE IF EXISTS favorites;
 
--- Crear la tabla favoriteBooks
-CREATE TABLE favoriteBooks (
+CREATE TABLE favorites (
     id INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
-    username VARCHAR(45) NOT NULL,
-    bookID VARCHAR(45) NOT NULL
+    user_id INT NOT NULL,
+    book VARCHAR(255) NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
