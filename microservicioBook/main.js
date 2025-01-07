@@ -12,7 +12,7 @@ console.log('🚀 Servidor inicializado correctamente y listo para recibir solic
 // Conectar a MongoDB
 connectDB();
 
-// Middleware para registrar solicitudes entrantes
+// Middleware global para registrar solicitudes
 app.use((req, res, next) => {
     console.log(`📥 Solicitud recibida: ${req.method} ${req.url}`);
     next();

@@ -35,86 +35,26 @@ const Book = require('../models/Book');
  */
 router.get('/search/:query', async (req, res) => {
     const { query } = req.params;
+    console.log(`🔍 Término buscado: ${query}`);
+
     try {
-        const response = await axios.get(`https://openlibrary.org/search.json?q=${query}`);
-        
-        // Filtrar los datos esenciales de los libros encontrados
+        console.log('📤 Realizando solicitud a OpenLibrary...');
+        const response = await axios.get(`https://openlibrary.org/search.json?q=${query}`, {
+            timeout: 10000, // Tiempo de espera de 10 segundos
+        });
+        console.log('📥 Respuesta recibida de OpenLibrary:', response.data.docs.length, 'libros encontrados.');
+
         const filteredBooks = response.data.docs.map((book) => ({
-            title: book.title,
+            title: book.title || 'Título no disponible',
             author: book.author_name ? book.author_name.join(', ') : 'Autor desconocido',
-            isbn: book.isbn ? book.isbn[0] : 'ISBN no disponible'
+            isbn: book.isbn ? book.isbn[0] : 'ISBN no disponible',
         }));
 
+        console.log(`✅ Libros procesados y enviados: ${filteredBooks.length}`);
         res.json(filteredBooks);
     } catch (err) {
+        console.error('❌ Error buscando libros en OpenLibrary:', err.message);
         res.status(500).json({ error: 'Error buscando libros en OpenLibrary' });
-    }
-});
-
-/**
- * @swagger
- * /api/books/{isbn}:
- *   get:
- *     summary: Obtener detalles de un libro
- *     description: Obtener información de un libro por su ISBN.
- *     parameters:
- *       - in: path
- *         name: isbn
- *         required: true
- *         schema:
- *           type: string
- *         description: ISBN del libro
- *     responses:
- *       200:
- *         description: Detalles del libro.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- */
-router.get('/:isbn', async (req, res) => {
-    const { isbn } = req.params;
-    try {
-        const response = await axios.get(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json`);
-        const bookData = response.data[`ISBN:${isbn}`];
-
-        res.json(bookData);
-    } catch (err) {
-        res.status(500).json({ error: 'Error obteniendo detalles del libro' });
-    }
-});
-
-/**
- * @swagger
- * /api/books/favorites:
- *   post:
- *     summary: Añadir libro a favoritos
- *     description: Añadir un libro a la lista de favoritos.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *               author:
- *                 type: string
- *               isbn:
- *                 type: string
- *     responses:
- *       200:
- *         description: Libro añadido a favoritos.
- */
-router.post('/favorites', async (req, res) => {
-    const { title, author, isbn } = req.body;
-    try {
-        const book = new Book({ title, author, isbn, favorites: true });
-        await book.save();
-        res.json({ message: 'Libro añadido a favoritos', book });
-    } catch (err) {
-        res.status(500).json({ error: 'Error añadiendo libro a favoritos' });
     }
 });
 
@@ -144,10 +84,21 @@ router.post('/favorites', async (req, res) => {
  *                     type: boolean
  */
 router.get('/favorites', async (req, res) => {
+    console.log(`📋 Listando libros favoritos`);
+
     try {
         const favorites = await Book.find({ favorites: true });
+        console.log(`🔍 Resultado de la consulta:`, favorites);
+
+        if (favorites.length === 0) {
+            console.log(`⚠️ No se encontraron libros favoritos.`);
+            return res.status(404).json({ message: 'No se encontraron libros favoritos.' });
+        }
+
+        console.log(`✅ Libros favoritos encontrados: ${favorites.length}`);
         res.json(favorites);
     } catch (err) {
+        console.error('❌ Error listando favoritos:', err.message);
         res.status(500).json({ error: 'Error listando favoritos' });
     }
 });
