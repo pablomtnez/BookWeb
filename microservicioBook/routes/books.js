@@ -5,6 +5,97 @@ const Book = require('../models/Book');
 
 /**
  * @swagger
+ * /api/books/favorites:
+ *   get:
+ *     summary: Listar libros favoritos
+ *     description: Obtener todos los libros marcados como favoritos.
+ *     responses:
+ *       200:
+ *         description: Lista de libros favoritos.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   title:
+ *                     type: string
+ *                   author:
+ *                     type: string
+ *                   isbn:
+ *                     type: string
+ *                   favorites:
+ *                     type: boolean
+ */
+router.get('/favorites', async (req, res) => {
+    console.log('📋 Listando libros favoritos...');
+
+    try {
+        const favorites = await Book.find({ favorites: true });
+        console.log(`🔍 Resultado de la consulta:`, favorites);
+
+        if (favorites.length === 0) {
+            console.log(`⚠️ No se encontraron libros favoritos.`);
+            return res.status(404).json({ message: 'No se encontraron libros favoritos.' });
+        }
+
+        console.log(`✅ Libros favoritos encontrados: ${favorites.length}`);
+        res.json(favorites);
+    } catch (err) {
+        console.error('❌ Error listando libros favoritos:', err.message);
+        res.status(500).json({ error: 'Error listando libros favoritos' });
+    }
+});
+
+/**
+ * @swagger
+ * /api/books/{isbn}:
+ *   get:
+ *     summary: Obtener detalles de un libro
+ *     description: Obtener información completa de un libro por su ISBN.
+ *     parameters:
+ *       - in: path
+ *         name: isbn
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ISBN del libro
+ *     responses:
+ *       200:
+ *         description: Detalles del libro.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ */
+router.get('/:isbn', async (req, res) => {
+    const { isbn } = req.params;
+    console.log(`🔍 Obteniendo detalles del libro con ISBN: ${isbn}`);
+
+    try {
+        const response = await axios.get(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
+        const bookData = response.data[`ISBN:${isbn}`];
+
+        if (bookData) {
+            res.json({
+                title: bookData.title || 'Título no disponible',
+                authors: bookData.authors ? bookData.authors.map(author => author.name).join(', ') : 'Autor desconocido',
+                publish_date: bookData.publish_date || 'Fecha de publicación no disponible',
+                info_url: bookData.url || 'URL no disponible',
+                thumbnail_url: bookData.cover ? bookData.cover.small : 'Thumbnail no disponible',
+            });
+        } else {
+            res.status(404).json({ message: 'No se encontraron detalles para este ISBN.' });
+        }
+    } catch (err) {
+        console.error('❌ Error obteniendo detalles del libro:', err.message);
+        res.status(500).json({ error: 'Error obteniendo detalles del libro' });
+    }
+});
+
+/**
+ * @swagger
  * /api/books/search/{query}:
  *   get:
  *     summary: Buscar libros
@@ -38,11 +129,8 @@ router.get('/search/:query', async (req, res) => {
     console.log(`🔍 Término buscado: ${query}`);
 
     try {
-        console.log('📤 Realizando solicitud a OpenLibrary...');
-        const response = await axios.get(`https://openlibrary.org/search.json?q=${query}`, {
-            timeout: 10000, // Tiempo de espera de 10 segundos
-        });
-        console.log('📥 Respuesta recibida de OpenLibrary:', response.data.docs.length, 'libros encontrados.');
+        const response = await axios.get(`https://openlibrary.org/search.json?q=${query}`);
+        console.log('📥 Libros encontrados:', response.data.docs.length);
 
         const filteredBooks = response.data.docs.map((book) => ({
             title: book.title || 'Título no disponible',
@@ -50,56 +138,47 @@ router.get('/search/:query', async (req, res) => {
             isbn: book.isbn ? book.isbn[0] : 'ISBN no disponible',
         }));
 
-        console.log(`✅ Libros procesados y enviados: ${filteredBooks.length}`);
         res.json(filteredBooks);
     } catch (err) {
-        console.error('❌ Error buscando libros en OpenLibrary:', err.message);
-        res.status(500).json({ error: 'Error buscando libros en OpenLibrary' });
+        console.error('❌ Error buscando libros:', err.message);
+        res.status(500).json({ error: 'Error buscando libros' });
     }
 });
 
 /**
  * @swagger
  * /api/books/favorites:
- *   get:
- *     summary: Listar libros favoritos
- *     description: Obtener todos los libros marcados como favoritos.
+ *   post:
+ *     summary: Añadir libro a favoritos
+ *     description: Añadir un libro a la lista de favoritos.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               author:
+ *                 type: string
+ *               isbn:
+ *                 type: string
  *     responses:
  *       200:
- *         description: Lista de libros favoritos.
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   title:
- *                     type: string
- *                   author:
- *                     type: string
- *                   isbn:
- *                     type: string
- *                   favorites:
- *                     type: boolean
+ *         description: Libro añadido a favoritos.
  */
-router.get('/favorites', async (req, res) => {
-    console.log(`📋 Listando libros favoritos`);
+router.post('/favorites', async (req, res) => {
+    const { title, author, isbn } = req.body;
+    console.log(`✨ Añadiendo libro a favoritos: ${title} (${isbn})`);
 
     try {
-        const favorites = await Book.find({ favorites: true });
-        console.log(`🔍 Resultado de la consulta:`, favorites);
-
-        if (favorites.length === 0) {
-            console.log(`⚠️ No se encontraron libros favoritos.`);
-            return res.status(404).json({ message: 'No se encontraron libros favoritos.' });
-        }
-
-        console.log(`✅ Libros favoritos encontrados: ${favorites.length}`);
-        res.json(favorites);
+        const book = new Book({ title, author, isbn, favorites: true });
+        await book.save();
+        res.json({ message: 'Libro añadido a favoritos', book });
     } catch (err) {
-        console.error('❌ Error listando favoritos:', err.message);
-        res.status(500).json({ error: 'Error listando favoritos' });
+        console.error('❌ Error añadiendo libro a favoritos:', err.message);
+        res.status(500).json({ error: 'Error añadiendo libro a favoritos' });
     }
 });
 
