@@ -108,6 +108,21 @@ router.post('/favorites', async (req, res) => {
  *     responses:
  *       200:
  *         description: Lista de libros favoritos.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   title:
+ *                     type: string
+ *                   author:
+ *                     type: string
+ *                   isbn:
+ *                     type: string
+ *                   favorites:
+ *                     type: boolean
  */
 router.get('/favorites', async (req, res) => {
     try {
