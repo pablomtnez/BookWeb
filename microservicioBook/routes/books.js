@@ -8,7 +8,7 @@ const Book = require('../models/Book');
  * /api/books/search/{query}:
  *   get:
  *     summary: Buscar libros
- *     description: Buscar libros en OpenLibrary utilizando un término de búsqueda.
+ *     description: Buscar libros en OpenLibrary utilizando un término de búsqueda. Devuelve solo los datos esenciales (título, autor e ISBN).
  *     parameters:
  *       - in: path
  *         name: query
@@ -18,17 +18,34 @@ const Book = require('../models/Book');
  *         description: Término de búsqueda
  *     responses:
  *       200:
- *         description: Lista de libros encontrados.
+ *         description: Lista de libros encontrados con datos esenciales.
  *         content:
  *           application/json:
  *             schema:
- *               type: object
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   title:
+ *                     type: string
+ *                   author:
+ *                     type: string
+ *                   isbn:
+ *                     type: string
  */
 router.get('/search/:query', async (req, res) => {
     const { query } = req.params;
     try {
         const response = await axios.get(`https://openlibrary.org/search.json?q=${query}`);
-        res.json(response.data);
+        
+        // Filtrar los datos esenciales de los libros encontrados
+        const filteredBooks = response.data.docs.map((book) => ({
+            title: book.title,
+            author: book.author_name ? book.author_name.join(', ') : 'Autor desconocido',
+            isbn: book.isbn ? book.isbn[0] : 'ISBN no disponible'
+        }));
+
+        res.json(filteredBooks);
     } catch (err) {
         res.status(500).json({ error: 'Error buscando libros en OpenLibrary' });
     }
@@ -59,7 +76,9 @@ router.get('/:isbn', async (req, res) => {
     const { isbn } = req.params;
     try {
         const response = await axios.get(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json`);
-        res.json(response.data[`ISBN:${isbn}`]);
+        const bookData = response.data[`ISBN:${isbn}`];
+
+        res.json(bookData);
     } catch (err) {
         res.status(500).json({ error: 'Error obteniendo detalles del libro' });
     }
