@@ -1,14 +1,24 @@
 const express = require('express');
-const app = express();
 const connectDB = require('./config/db');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocs = require('./swagger');
 const booksRoutes = require('./routes/books');
 
+const app = express();
+
+// Mensaje básico para confirmar que el servidor está inicializado
+console.log('🚀 Servidor inicializado correctamente y listo para recibir solicitudes');
+
 // Conectar a MongoDB
 connectDB();
 
-// Middleware
+// Middleware para registrar solicitudes entrantes
+app.use((req, res, next) => {
+    console.log(`📥 Solicitud recibida: ${req.method} ${req.url}`);
+    next();
+});
+
+// Middleware para manejar datos JSON
 app.use(express.json());
 
 // Rutas
