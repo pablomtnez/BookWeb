@@ -1,32 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const axios = require("axios");
 const Book = require("../models/Book");
-
-/**
- * @swagger
- * components:
- *   schemas:
- *     Book:
- *       type: object
- *       properties:
- *         title:
- *           type: string
- *           description: Título del libro
- *         author:
- *           type: string
- *           description: Autor del libro
- *         isbn:
- *           type: string
- *           description: ISBN único del libro
- *         favorites:
- *           type: boolean
- *           description: Indica si el libro está marcado como favorito
- *       required:
- *         - title
- *         - author
- *         - isbn
- */
+const { loadBooks } = require("../scripts/loadBooks"); // Importar la función
 
 /**
  * @swagger
@@ -65,6 +40,14 @@ router.get("/", async (req, res) => {
     const skip = (page - 1) * limit;
 
     try {
+        // Verificar si hay suficientes libros en la base de datos
+        const totalBooks = await Book.countDocuments();
+        if (totalBooks < skip + limit) {
+            console.log("🔄 Cargando más libros desde OpenLibrary...");
+            await loadBooks("programming"); // Llama a la función de carga automática
+        }
+
+        // Obtener libros desde la base de datos
         const books = await Book.find().skip(skip).limit(limit);
         res.status(200).json({ books });
     } catch (err) {
