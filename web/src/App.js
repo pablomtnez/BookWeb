@@ -1,13 +1,12 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import BookList from './components/BookList';
-import Favorites from './components/Favorites';
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Auth from "./Auth"; // Importamos nuestro nuevo componente
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<BookList />} />
-        <Route path="/favorites" element={<Favorites />} />
+        <Route path="/auth" element={<Auth />} />
       </Routes>
     </Router>
   );
