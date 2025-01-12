@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import api from "../api"; // Asegúrate de que el archivo `api.js` está en la carpeta `src`
 
 const Books = ({ favorites, setFavorites }) => {
   const [books, setBooks] = useState([]);
@@ -10,26 +11,22 @@ const Books = ({ favorites, setFavorites }) => {
   const navigate = useNavigate(); // Para redirigir al usuario
 
   const fetchBooks = async (page) => {
-    const fakeBooks = Array.from({ length: 10 }, (_, index) => ({
-      title: `Libro ${index + 1 + (page - 1) * 10}`,
-      author: "Autor Desconocido",
-      genre: "Ficción",
-      description: "Este es un libro de ejemplo con descripción ficticia.",
-      image: "https://via.placeholder.com/150",
-    }));
-    return fakeBooks;
-  };
+    try {
+        setLoading(true);
+        const response = await api.get(`/books`, { params: { page, limit: 10 } });
+        setBooks((prevBooks) => [...prevBooks, ...response.data.books]);
+    } catch (error) {
+        console.error("Error al cargar los libros:", error);
+    } finally {
+        setLoading(false);
+    }
+};
 
-  useEffect(() => {
-    const loadBooks = async () => {
-      setLoading(true);
-      const newBooks = await fetchBooks(page);
-      setBooks((prevBooks) => [...prevBooks, ...newBooks]);
-      setLoading(false);
-    };
 
-    loadBooks();
-  }, [page]);
+useEffect(() => {
+  fetchBooks(page);
+}, [page]);
+
 
   const handleScroll = useCallback(() => {
     const scrollHeight = document.documentElement.scrollHeight;
