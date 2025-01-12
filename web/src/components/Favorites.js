@@ -1,7 +1,23 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import api from "../api"; // Importar la configuración de Axios
 
-const Favorites = ({ favorites }) => {
+const Favorites = () => {
+  const [favorites, setFavorites] = useState([]);
+
+  useEffect(() => {
+    const fetchFavorites = async () => {
+      try {
+        const response = await api.get("/books/favorites");
+        setFavorites(response.data);
+      } catch (error) {
+        console.error("Error al cargar favoritos:", error);
+      }
+    };
+
+    fetchFavorites();
+  }, []);
+
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6 text-center">Tus Libros Favoritos</h1>
@@ -24,7 +40,7 @@ const Favorites = ({ favorites }) => {
               className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition flex flex-col items-center"
             >
               <img
-                src={book.image}
+                src={book.image || "/placeholder.png"}
                 alt={book.title}
                 className="w-32 h-48 object-cover rounded mb-4"
               />
