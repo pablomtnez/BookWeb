@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import api from "../api"; // Importar la configuración de Axios
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -8,13 +9,14 @@ const Auth = () => {
     password: "",
     confirmPassword: "",
   });
+  const [message, setMessage] = useState("");
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!isLogin && formData.password !== formData.confirmPassword) {
@@ -22,10 +24,28 @@ const Auth = () => {
       return;
     }
 
-    if (isLogin) {
-      console.log("Iniciando sesión con:", formData.email, formData.password);
-    } else {
-      console.log("Registrando usuario con:", formData);
+    try {
+      if (isLogin) {
+        // Login
+        const response = await api.post("/login", {
+          username: formData.email,
+          password: formData.password,
+        });
+        localStorage.setItem("token", response.data.access_token); // Guardar el token JWT
+        setMessage("Inicio de sesión exitoso");
+      } else {
+        // Registro
+        const response = await api.post("/register", {
+          name: formData.name,
+          username: formData.email,
+          password: formData.password,
+        });
+        setMessage(response.data.message || "Registro exitoso");
+      }
+    } catch (error) {
+      setMessage(
+        error.response?.data?.detail || "Ocurrió un error, por favor intenta nuevamente"
+      );
     }
   };
 
@@ -35,6 +55,9 @@ const Auth = () => {
         <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">
           {isLogin ? "Inicio de Sesión" : "Registro"}
         </h2>
+        {message && (
+          <p className="text-center text-red-500 font-medium mb-4">{message}</p>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <div>
