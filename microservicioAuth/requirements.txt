@@ -6,3 +6,4 @@ python-dotenv
 uvicorn
 python-multipart
 cryptography
+aiomysql
