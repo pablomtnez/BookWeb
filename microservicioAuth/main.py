@@ -21,8 +21,12 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # Configuración de OAuth2
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
-# Inicializar FastAPI
-app = FastAPI()
+# Inicializar FastAPI con root_path para el gateway
+app = FastAPI(
+    docs_url="/docs",  # Swagger estará disponible en /auth/docs a través del gateway
+    redoc_url="/redoc",  # ReDoc estará disponible en /auth/redoc a través del gateway
+    root_path="/auth"  # Este prefijo es manejado por el gateway
+)
 
 # Configuración de conexión a la base de datos
 async def get_db():
@@ -98,8 +102,3 @@ async def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db=Depend
         access_token = create_access_token(data={"sub": form_data.username})
         print("Login successful")
         return {"access_token": access_token, "token_type": "bearer"}
-
-@app.get("/auth/docs")
-async def get_docs():
-    print("Received request: /auth/docs")
-    return {"message": "Swagger documentation is served here"}
