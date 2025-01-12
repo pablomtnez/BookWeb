@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from pydantic import BaseModel, Field
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -15,17 +15,13 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your_secret_key")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-# Configuración de encriptación de contraseñas
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")  # Ajustar ruta de login con prefijo
 
-# Configuración de OAuth2
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
-
-# Inicializar FastAPI con root_path para el gateway
+# Inicializar FastAPI
 app = FastAPI(
-    docs_url="/docs",  # Swagger estará disponible en /auth/docs a través del gateway
-    redoc_url="/redoc",  # ReDoc estará disponible en /auth/redoc a través del gateway
-    root_path="/auth"  # Este prefijo es manejado por el gateway
+    docs_url="/docs",  # Swagger estará disponible en /auth/docs
+    redoc_url="/redoc"  # ReDoc estará disponible en /auth/redoc
 )
 
 # Configuración de conexión a la base de datos
@@ -42,6 +38,17 @@ async def get_db():
     finally:
         connection.close()
 
+# Middleware para registrar solicitudes
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    print(f"--- Incoming Request ---")
+    print(f"Method: {request.method}")
+    print(f"URL: {request.url}")
+    print(f"Headers: {dict(request.headers)}")
+    response = await call_next(request)
+    print(f"Response Status: {response.status_code}")
+    return response
+
 # Modelos Pydantic
 class User(BaseModel):
     name: str = Field(..., min_length=3, max_length=50)
@@ -51,12 +58,6 @@ class User(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
-
-class AddFavoriteBook(BaseModel):
-    book: str = Field(..., min_length=1, max_length=255)
-
-class DeleteFavoriteBook(BaseModel):
-    book: str = Field(..., min_length=1, max_length=255)
 
 # Funciones Auxiliares
 def get_password_hash(password: str) -> str:
@@ -72,9 +73,12 @@ def create_access_token(data: dict) -> str:
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 # Endpoints
+@app.get("/")
+async def root():
+    return {"message": "Auth Service is running"}
+
 @app.post("/register")
 async def register_user(user: User, db=Depends(get_db)):
-    print("Received request: /register")
     async with db.cursor() as cursor:
         await cursor.execute("SELECT username FROM users WHERE username = %s", (user.username,))
         existing_user = await cursor.fetchone()
@@ -87,12 +91,10 @@ async def register_user(user: User, db=Depends(get_db)):
             (user.name, user.username, hashed_password),
         )
         await db.commit()
-        print("User registered successfully")
-        return {"message": "User registered successfully"}
+    return {"message": "User registered successfully"}
 
 @app.post("/login", response_model=Token)
 async def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db=Depends(get_db)):
-    print("Received request: /login")
     async with db.cursor() as cursor:
         await cursor.execute("SELECT password_hash FROM users WHERE username = %s", (form_data.username,))
         user = await cursor.fetchone()
@@ -100,5 +102,4 @@ async def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db=Depend
             raise HTTPException(status_code=400, detail="Invalid username or password")
 
         access_token = create_access_token(data={"sub": form_data.username})
-        print("Login successful")
-        return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer"}

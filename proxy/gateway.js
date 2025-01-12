@@ -15,34 +15,25 @@ const server = http.createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-    // Logs de las solicitudes entrantes
-    console.log(`[${new Date().toISOString()}] Incoming request: ${req.method} ${req.url}`);
+    console.log(`[${new Date().toISOString()}] Incoming request:`);
+    console.log(`  Method: ${req.method}`);
+    console.log(`  URL: ${req.url}`);
+    console.log(`  Headers: ${JSON.stringify(req.headers)}`);
 
-    // Redirección específica para /auth/docs
-    if (req.url === '/auth/docs') {
-        console.log(`[${new Date().toISOString()}] Redirecting to ${authService}/docs`);
-        proxy.web(req, res, { target: `${authService}/docs` }, (err) => {
-            console.error(`Error redirecting to /docs: ${err.message}`);
-            res.writeHead(502, { 'Content-Type': 'text/plain' });
-            res.end('Error communicating with auth service for /docs');
-        });
-    } 
-    // Redirección para otras rutas que empiezan con /auth
-    else if (req.url.startsWith('/auth')) {
-        console.log(`[${new Date().toISOString()}] Redirecting to ${authService}${req.url}`);
-        proxy.web(req, res, { target: `${authService}${req.url}` }, (err) => {
-            console.error(`Error redirecting to ${authService}${req.url}: ${err.message}`);
+    // Redirección específica para /auth
+    if (req.url.startsWith('/auth')) {
+        const target =
+            req.url === '/auth/docs'
+                ? `${authService}/docs`
+                : `${authService}${req.url.replace('/auth', '')}`;
+        console.log(`[${new Date().toISOString()}] Redirecting to ${target}`);
+        proxy.web(req, res, { 
+            target, 
+            headers: { 'X-Forwarded-Host': req.headers.host } 
+        }, (err) => {
+            console.error(`Error redirecting to ${target}: ${err.message}`);
             res.writeHead(502, { 'Content-Type': 'text/plain' });
             res.end('Error communicating with auth service');
-        });
-    } 
-    // Redirección para rutas que empiezan con /books
-    else if (req.url.startsWith('/books')) {
-        console.log(`[${new Date().toISOString()}] Redirecting to ${bookService}${req.url}`);
-        proxy.web(req, res, { target: `${bookService}${req.url}` }, (err) => {
-            console.error(`Error redirecting to ${bookService}${req.url}: ${err.message}`);
-            res.writeHead(502, { 'Content-Type': 'text/plain' });
-            res.end('Error communicating with book service');
         });
     } 
     // Respuesta para rutas desconocidas
