@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import api from "../api"; // Importar la configuración de Axios
+import api from "../api";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -26,15 +26,13 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        // Login
         const response = await api.post("/login", {
           username: formData.email,
           password: formData.password,
         });
-        localStorage.setItem("token", response.data.access_token); // Guardar el token JWT
+        localStorage.setItem("token", response.data.access_token);
         setMessage("Inicio de sesión exitoso");
       } else {
-        // Registro
         const response = await api.post("/register", {
           name: formData.name,
           username: formData.email,
