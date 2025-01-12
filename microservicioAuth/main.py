@@ -7,6 +7,13 @@ import datetime
 import pymysql
 import os
 from dotenv import load_dotenv
+from fastapi.middleware.cors import CORSMiddleware
+from jwt.exceptions import ExpiredSignatureError, DecodeError
+import logging
+
+# Configuración de logs
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Cargar variables de entorno
 load_dotenv()
@@ -15,6 +22,10 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
+# Validar configuración crítica
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY no está definido en el archivo .env")
+
 # Configuración de encriptación de contraseñas
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -22,16 +33,29 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
 # Conexión a la base de datos
-db_connection = pymysql.connect(
-    host="localhost",
-    user="root",
-    password="root",
-    database="bookweb",
-    port=3306
-)
+try:
+    db_connection = pymysql.connect(
+        host=os.getenv("DB_HOST", "localhost"),
+        user=os.getenv("DB_USER", "root"),
+        password=os.getenv("DB_PASSWORD", "root"),
+        database=os.getenv("DB_NAME", "bookweb"),
+        port=int(os.getenv("DB_PORT", 3306)),
+    )
+except pymysql.MySQLError as e:
+    logger.error(f"Error al conectar a la base de datos: {e}")
+    raise RuntimeError("No se pudo conectar a la base de datos.")
 
 # Inicializar FastAPI
 app = FastAPI()
+
+# Middleware para CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Orígenes permitidos (frontend)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Modelos Pydantic
 class User(BaseModel):
@@ -65,31 +89,36 @@ def create_access_token(data: dict) -> str:
 # Endpoint de Registro
 @app.post("/register")
 async def register_user(user: User):
-    cursor = db_connection.cursor()
-    cursor.execute("SELECT username FROM users WHERE username = %s", (user.username,))
-    existing_user = cursor.fetchone()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Username already exists")
+    if not user.name or not user.username or not user.password:
+        raise HTTPException(status_code=400, detail="Todos los campos son obligatorios.")
 
-    hashed_password = get_password_hash(user.password)
-    cursor.execute(
-        "INSERT INTO users (name, username, password_hash) VALUES (%s, %s, %s)",
-        (user.name, user.username, hashed_password),
-    )
-    db_connection.commit()
-    return {"message": "User registered successfully"}
+    with db_connection.cursor() as cursor:
+        cursor.execute("SELECT username FROM users WHERE username = %s", (user.username,))
+        existing_user = cursor.fetchone()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="El nombre de usuario ya existe.")
+
+        hashed_password = get_password_hash(user.password)
+        cursor.execute(
+            "INSERT INTO users (name, username, password_hash) VALUES (%s, %s, %s)",
+            (user.name, user.username, hashed_password),
+        )
+        db_connection.commit()
+        logger.info(f"Usuario {user.username} registrado correctamente.")
+    return {"message": "Usuario registrado con éxito."}
 
 # Endpoint de Inicio de Sesión
 @app.post("/login", response_model=Token)
 async def login_user(form_data: OAuth2PasswordRequestForm = Depends()):
-    cursor = db_connection.cursor()
-    cursor.execute("SELECT password_hash FROM users WHERE username = %s", (form_data.username,))
-    user = cursor.fetchone()
-    if not user or not verify_password(form_data.password, user[0]):
-        raise HTTPException(status_code=400, detail="Invalid username or password")
+    with db_connection.cursor() as cursor:
+        cursor.execute("SELECT password_hash FROM users WHERE username = %s", (form_data.username,))
+        user = cursor.fetchone()
+        if not user or not verify_password(form_data.password, user[0]):
+            raise HTTPException(status_code=400, detail="Nombre de usuario o contraseña inválidos.")
 
-    access_token = create_access_token(data={"sub": form_data.username})
-    return {"access_token": access_token, "token_type": "bearer"}
+        access_token = create_access_token(data={"sub": form_data.username})
+        logger.info(f"Usuario {form_data.username} inició sesión.")
+        return {"access_token": access_token, "token_type": "bearer"}
 
 # Endpoint para Agregar Favoritos
 @app.post("/favorites/add")
@@ -98,22 +127,25 @@ async def add_favorite_book(favorite: AddFavoriteBook, token: str = Depends(oaut
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username = payload.get("sub")
         if username is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        
-        cursor = db_connection.cursor()
-        cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
-        user = cursor.fetchone()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        cursor.execute(
-            "INSERT INTO favorites (user_id, book) VALUES (%s, %s)",
-            (user[0], favorite.book),
-        )
-        db_connection.commit()
-        return {"message": f"Book '{favorite.book}' added to favorites."}
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+            raise HTTPException(status_code=401, detail="Token inválido.")
+
+        with db_connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            user = cursor.fetchone()
+            if not user:
+                raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+            cursor.execute(
+                "INSERT INTO favorites (user_id, book) VALUES (%s, %s)",
+                (user[0], favorite.book),
+            )
+            db_connection.commit()
+            logger.info(f"Libro {favorite.book} agregado a favoritos por {username}.")
+        return {"message": f"Libro '{favorite.book}' agregado a favoritos."}
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="El token ha expirado.")
+    except DecodeError:
+        raise HTTPException(status_code=401, detail="Token inválido.")
 
 # Endpoint para Eliminar Favoritos
 @app.delete("/favorites/delete")
@@ -122,22 +154,25 @@ async def delete_favorite_book(favorite: DeleteFavoriteBook, token: str = Depend
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username = payload.get("sub")
         if username is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        
-        cursor = db_connection.cursor()
-        cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
-        user = cursor.fetchone()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        cursor.execute(
-            "DELETE FROM favorites WHERE user_id = %s AND book = %s",
-            (user[0], favorite.book),
-        )
-        db_connection.commit()
-        return {"message": f"Book '{favorite.book}' removed from favorites."}
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+            raise HTTPException(status_code=401, detail="Token inválido.")
+
+        with db_connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            user = cursor.fetchone()
+            if not user:
+                raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+            cursor.execute(
+                "DELETE FROM favorites WHERE user_id = %s AND book = %s",
+                (user[0], favorite.book),
+            )
+            db_connection.commit()
+            logger.info(f"Libro {favorite.book} eliminado de favoritos por {username}.")
+        return {"message": f"Libro '{favorite.book}' eliminado de favoritos."}
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="El token ha expirado.")
+    except DecodeError:
+        raise HTTPException(status_code=401, detail="Token inválido.")
 
 # Endpoint para Obtener Favoritos
 @app.get("/favorites")
@@ -146,16 +181,19 @@ async def get_favorite_books(token: str = Depends(oauth2_scheme)):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username = payload.get("sub")
         if username is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        
-        cursor = db_connection.cursor()
-        cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
-        user = cursor.fetchone()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        cursor.execute("SELECT book FROM favorites WHERE user_id = %s", (user[0],))
-        favorites = cursor.fetchall()
+            raise HTTPException(status_code=401, detail="Token inválido.")
+
+        with db_connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            user = cursor.fetchone()
+            if not user:
+                raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+            cursor.execute("SELECT book FROM favorites WHERE user_id = %s", (user[0],))
+            favorites = cursor.fetchall()
+            logger.info(f"Favoritos recuperados para {username}.")
         return {"favorites": [f[0] for f in favorites]}
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="El token ha expirado.")
+    except DecodeError:
+        raise HTTPException(status_code=401, detail="Token inválido.")
