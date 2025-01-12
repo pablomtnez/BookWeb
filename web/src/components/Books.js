@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import api from "../api";
+import { booksApi } from "../api";
 
 const Books = ({ favorites, setFavorites }) => {
   const [books, setBooks] = useState([]);
@@ -14,7 +14,7 @@ const Books = ({ favorites, setFavorites }) => {
   const fetchBooks = async (page) => {
     try {
       setLoading(true);
-      const response = await api.get(`/books`, { params: { page, limit: 10 } });
+      const response = await booksApi.get(`/books`, { params: { page, limit: 10 } });
       setBooks((prevBooks) => [...prevBooks, ...response.data.books]);
     } catch (error) {
       console.error("Error al cargar los libros:", error);
@@ -25,7 +25,7 @@ const Books = ({ favorites, setFavorites }) => {
 
   const fetchBookDetails = async (isbn) => {
     try {
-      const response = await api.get(`/books/${isbn}`);
+      const response = await booksApi.get(`/books/${isbn}`);
       setBookDetails(response.data);
     } catch (error) {
       console.error("Error al obtener detalles del libro:", error);
@@ -63,7 +63,7 @@ const Books = ({ favorites, setFavorites }) => {
 
   const addToFavorites = async (book) => {
     try {
-      await api.post("/books/favorites", {
+      await booksApi.post("/books/favorites", {
         title: book.title,
         author: book.author,
         isbn: book.isbn,
@@ -77,7 +77,7 @@ const Books = ({ favorites, setFavorites }) => {
 
   const searchBooks = async (query) => {
     try {
-      const response = await api.get(`/books/search/${query}`);
+      const response = await booksApi.get(`/books/search/${query}`);
       setBooks(response.data);
     } catch (error) {
       console.error("Error al buscar libros:", error);
