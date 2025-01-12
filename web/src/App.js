@@ -1,10 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
 import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
-import Auth from "./components/Auth";
 import Books from "./components/Books";
-import ProtectedRoute from "./components/ProtectedRoute";
+import Favorites from "./components/Favorites";
+import Auth from "./components/Auth";
 
 function App() {
+  const [favorites, setFavorites] = useState([]); // Estado global para favoritos
+
   return (
     <Router>
       <Routes>
@@ -14,15 +16,14 @@ function App() {
         {/* Ruta de autenticación */}
         <Route path="/auth" element={<Auth />} />
 
-        {/* Ruta protegida para la página de libros */}
+        {/* Ruta de libros */}
         <Route
           path="/books"
-          element={
-            <ProtectedRoute>
-              <Books />
-            </ProtectedRoute>
-          }
+          element={<Books favorites={favorites} setFavorites={setFavorites} />}
         />
+
+        {/* Ruta de favoritos */}
+        <Route path="/favorites" element={<Favorites favorites={favorites} />} />
       </Routes>
     </Router>
   );
