@@ -5,6 +5,32 @@ const { loadBooks } = require("../scripts/loadBooks"); // Importar la función
 
 /**
  * @swagger
+ * components:
+ *   schemas:
+ *     Book:
+ *       type: object
+ *       properties:
+ *         title:
+ *           type: string
+ *           description: Título del libro
+ *         author:
+ *           type: string
+ *           description: Autor del libro
+ *         isbn:
+ *           type: string
+ *           description: ISBN único del libro
+ *         favorites:
+ *           type: boolean
+ *           description: Indica si el libro está marcado como favorito
+ *       required:
+ *         - title
+ *         - author
+ *         - isbn
+ */
+
+
+/**
+ * @swagger
  * /api/books:
  *   get:
  *     summary: Obtener una lista de libros
