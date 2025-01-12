@@ -1,7 +1,77 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const axios = require('axios');
-const Book = require('../models/Book');
+const axios = require("axios");
+const Book = require("../models/Book");
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Book:
+ *       type: object
+ *       properties:
+ *         title:
+ *           type: string
+ *           description: Título del libro
+ *         author:
+ *           type: string
+ *           description: Autor del libro
+ *         isbn:
+ *           type: string
+ *           description: ISBN único del libro
+ *         favorites:
+ *           type: boolean
+ *           description: Indica si el libro está marcado como favorito
+ *       required:
+ *         - title
+ *         - author
+ *         - isbn
+ */
+
+/**
+ * @swagger
+ * /api/books:
+ *   get:
+ *     summary: Obtener una lista de libros
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Número de página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Número de libros por página
+ *     responses:
+ *       200:
+ *         description: Lista de libros
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 books:
+ *                   type: array
+ *                   items:
+ *                     $ref: "#/components/schemas/Book"
+ */
+router.get("/", async (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    try {
+        const books = await Book.find().skip(skip).limit(limit);
+        res.status(200).json({ books });
+    } catch (err) {
+        console.error("❌ Error al obtener los libros:", err.message);
+        res.status(500).json({ error: "No se pudo obtener la lista de libros" });
+    }
+});
 
 /**
  * @swagger

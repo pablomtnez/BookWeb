@@ -1,13 +1,13 @@
-const express = require('express');
-const connectDB = require('./config/db');
-const swaggerUi = require('swagger-ui-express');
-const swaggerDocs = require('./swagger');
-const booksRoutes = require('./routes/books');
+const express = require("express");
+const connectDB = require("./config/db");
+const swaggerUi = require("swagger-ui-express");
+const swaggerDocs = require("./swagger");
+const booksRoutes = require("./routes/books");
 
 const app = express();
 
 // Mensaje básico para confirmar que el servidor está inicializado
-console.log('🚀 Servidor inicializado correctamente y listo para recibir solicitudes');
+console.log("🚀 Servidor inicializado correctamente y listo para recibir solicitudes");
 
 // Conectar a MongoDB
 connectDB();
@@ -22,10 +22,10 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 // Rutas
-app.use('/api/books', booksRoutes);
+app.use("/api/books", booksRoutes);
 
 // Documentación Swagger
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 // Puerto del servidor
 const PORT = process.env.PORT || 9000;
