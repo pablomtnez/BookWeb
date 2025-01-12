@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, Request
 from pydantic import BaseModel, Field
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.openapi.utils import get_openapi
 import jwt
 import datetime
 import aiomysql
@@ -11,17 +12,17 @@ from dotenv import load_dotenv
 # Cargar variables de entorno
 load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY", "your_secret_key")
+SECRET_KEY = os.getenv("SECRET_KEY", "default_secret_key")  # Usar la clave desde el .env o una por defecto
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")  # Ajustar ruta de login con prefijo
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")  # Sin prefijo /auth para simplificar
 
 # Inicializar FastAPI
 app = FastAPI(
-    docs_url="/docs",  # Swagger estará disponible en /auth/docs
-    redoc_url="/redoc"  # ReDoc estará disponible en /auth/redoc
+    docs_url="/docs",  # Swagger estará disponible en /docs
+    redoc_url="/redoc"  # ReDoc estará disponible en /redoc
 )
 
 # Configuración de conexión a la base de datos
