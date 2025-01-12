@@ -22,7 +22,10 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
 # Inicializar FastAPI
-app = FastAPI()
+app = FastAPI(
+    docs_url="/auth/docs",  # Cambia la URL de Swagger
+    redoc_url="/auth/redoc"  # Cambia la URL de ReDoc
+)
 
 # Configuración de conexión a la base de datos
 async def get_db():
