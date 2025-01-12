@@ -1,7 +1,9 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api";
 
 const Auth = () => {
+  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     name: "",
@@ -26,12 +28,21 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        const response = await api.post("/login", {
-          username: formData.email,
-          password: formData.password,
+        const form = new URLSearchParams();
+        form.append("username", formData.email);
+        form.append("password", formData.password);
+
+        const response = await api.post("/login", form, {
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
         });
+
         localStorage.setItem("token", response.data.access_token);
         setMessage("Inicio de sesión exitoso");
+
+        // Redirigir a la página de libros después de iniciar sesión
+        navigate("/books");
       } else {
         const response = await api.post("/register", {
           name: formData.name,
@@ -41,9 +52,12 @@ const Auth = () => {
         setMessage(response.data.message || "Registro exitoso");
       }
     } catch (error) {
-      setMessage(
-        error.response?.data?.detail || "Ocurrió un error, por favor intenta nuevamente"
-      );
+      const errorMessage =
+        error.response?.data?.detail ||
+        (Array.isArray(error.response?.data)
+          ? error.response.data.map((err) => err.msg).join(", ")
+          : "Ocurrió un error, por favor intenta nuevamente");
+      setMessage(errorMessage);
     }
   };
 
@@ -54,7 +68,9 @@ const Auth = () => {
           {isLogin ? "Inicio de Sesión" : "Registro"}
         </h2>
         {message && (
-          <p className="text-center text-red-500 font-medium mb-4">{message}</p>
+          <p className="text-center text-red-500 font-medium mb-4">
+            {typeof message === "string" ? message : JSON.stringify(message)}
+          </p>
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (

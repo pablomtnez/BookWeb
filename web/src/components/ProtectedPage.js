@@ -6,7 +6,7 @@ const ProtectedPage = () => {
 
   useEffect(() => {
     checkAuth();
-  }, []);
+  }, [checkAuth]); // Ahora `checkAuth` es estable
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-100">

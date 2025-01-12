@@ -1,26 +1,25 @@
 import React from "react";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import Auth from "./components/Auth";
-import Home from "./components/Home";
-import ProtectedPage from "./components/ProtectedPage";
+import Books from "./components/Books";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
     <Router>
       <Routes>
-        {/* Ruta para autenticación */}
-        <Route path="/auth" element={<Auth />} />
-        
-        {/* Ruta para la página principal */}
-        <Route path="/" element={<Home />} />
+        {/* Redirigir a /auth por defecto */}
+        <Route path="/" element={<Navigate to="/auth" />} />
 
-        {/* Ruta protegida */}
+        {/* Ruta de autenticación */}
+        <Route path="/auth" element={<Auth />} />
+
+        {/* Ruta protegida para la página de libros */}
         <Route
-          path="/protected"
+          path="/books"
           element={
             <ProtectedRoute>
-              <ProtectedPage />
+              <Books />
             </ProtectedRoute>
           }
         />
