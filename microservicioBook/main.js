@@ -2,6 +2,7 @@ const express = require("express");
 const fs = require("fs");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
+const cors = require("cors"); // Importar cors
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
 
@@ -30,6 +31,15 @@ const Book = mongoose.model("Book", BookSchema);
 
 // Inicializar Express
 const app = express();
+
+// Configurar CORS
+const corsOptions = {
+  origin: "http://localhost:3000", // Permitir solicitudes desde el frontend
+  methods: ["GET", "POST", "PUT", "DELETE"], // Métodos permitidos
+  allowedHeaders: ["Content-Type", "Authorization"], // Encabezados permitidos
+};
+app.use(cors(corsOptions));
+
 app.use(express.json());
 
 // Configuración de Swagger
