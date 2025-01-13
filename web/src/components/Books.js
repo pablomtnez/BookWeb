@@ -55,6 +55,7 @@ const Books = ({ favorites, setFavorites }) => {
 
   // Función para abrir el modal y mostrar el libro seleccionado
   const openModal = (book) => {
+    console.log("[LOG] Abriendo modal con libro:", book); // Depuración
     setSelectedBook(book);
     setIsModalOpen(true);
   };
@@ -82,7 +83,7 @@ const Books = ({ favorites, setFavorites }) => {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)} // Actualiza el estado de búsqueda
-          placeholder="Buscar libros por título o autor..."
+          placeholder="Buscar libros por título, autor o ISBN..."
           className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
@@ -97,7 +98,7 @@ const Books = ({ favorites, setFavorites }) => {
             <img
               src={
                 book.isbn
-                  ? `/proxy/images/${book.isbn}` // Usa el proxy con ISBN
+                  ? `http://localhost:9000/proxy/images/${book.isbn}` // Asegúrate de que apunta al backend correcto
                   : "/placeholder.png" // Usa un placeholder si no hay ISBN
               }
               alt={book.title || "Título no disponible"}
@@ -108,6 +109,9 @@ const Books = ({ favorites, setFavorites }) => {
             </h2>
             <p className="text-gray-700 text-sm text-center">
               Autor: {book.author || "Autor desconocido"}
+            </p>
+            <p className="text-gray-700 text-sm text-center">
+              ISBN: {book.isbn || "No disponible"}
             </p>
           </div>
         ))}
@@ -169,6 +173,9 @@ const Books = ({ favorites, setFavorites }) => {
           </p>
           <p>
             <strong>Idioma:</strong> {selectedBook.language || "No especificado"}
+          </p>
+          <p>
+            <strong>ISBN:</strong> {selectedBook.isbn || "No disponible"}
           </p>
           <button
             onClick={() => addToFavorites(selectedBook)}

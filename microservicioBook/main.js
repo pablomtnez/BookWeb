@@ -92,11 +92,9 @@ app.get("/proxy/images/:isbn", async (req, res) => {
 
   try {
     const response = await fetch(imageUrl);
-    console.log(`[LOG] Respuesta desde Open Library: ${response.status} ${response.statusText}`); // Log de la respuesta
-
     if (!response.ok) {
-      // Devuelve un placeholder si la imagen no existe
-      return res.status(200).sendFile(__dirname + "/path/to/placeholder.png");
+      console.warn(`[WARN] Imagen no encontrada para ISBN ${isbn}. Enviando placeholder.`);
+      return res.sendFile(__dirname + "/assets/placeholder.png"); // Ruta al placeholder
     }
 
     res.set("Content-Type", response.headers.get("content-type"));
@@ -106,6 +104,7 @@ app.get("/proxy/images/:isbn", async (req, res) => {
     res.status(500).send({ error: "Error al cargar la imagen" });
   }
 });
+
 
 /**
  * @swagger
