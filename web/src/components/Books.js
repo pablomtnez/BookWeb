@@ -5,63 +5,63 @@ import { booksApi } from "../api";
 const Books = ({ favorites, setFavorites }) => {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedBook, setSelectedBook] = useState(null);
-  const [bookDetails, setBookDetails] = useState(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const navigate = useNavigate();
 
-  const fetchBooks = useCallback(async () => {
+  // Función para cargar datos en el backend automáticamente
+  const uploadData = useCallback(async () => {
     try {
       setLoading(true);
-      const endpoint = searchTerm
-        ? `/books/search/${searchTerm}`
-        : `/books/getAll`;
+      await booksApi.get("/books/uploadData");
+      console.log("Datos cargados correctamente");
+    } catch (error) {
+      console.error("Error al cargar datos automáticamente:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-      const response = await booksApi.get(endpoint);
-      setBooks(response.data);
+  // Función para cargar libros desde el backend
+  const fetchBooks = useCallback(async () => {
+    if (!hasMore || loading) return;
+    setLoading(true);
+    try {
+      const response = await booksApi.get(`/books/getAll`, {
+        params: { page, limit: 20 },
+      });
+      setBooks((prevBooks) => [...prevBooks, ...response.data]);
+      setHasMore(response.data.length > 0);
     } catch (error) {
       console.error("Error al cargar los libros:", error);
     } finally {
       setLoading(false);
     }
-  }, [searchTerm]);
+  }, [page, hasMore, loading]);
 
-  const fetchBookDetails = async (id) => {
-    try {
-      const response = await booksApi.get(`/books/id/${id}`);
-      setBookDetails(response.data);
-    } catch (error) {
-      console.error("Error al obtener detalles del libro:", error);
+  // Inicializa los datos y carga los libros al montar el componente
+  useEffect(() => {
+    const initializeData = async () => {
+      await uploadData(); // Cargar datos automáticamente
+      await fetchBooks(); // Obtener libros después de cargar datos
+    };
+    initializeData();
+  }, [uploadData, fetchBooks]);
+
+  // Maneja el scroll infinito
+  const handleScroll = () => {
+    if (
+      window.innerHeight + document.documentElement.scrollTop >=
+      document.documentElement.offsetHeight - 100
+    ) {
+      setPage((prevPage) => prevPage + 1);
     }
   };
 
   useEffect(() => {
-    fetchBooks();
-  }, [fetchBooks]);
-
-  const openModal = (book) => {
-    setSelectedBook(book);
-    fetchBookDetails(book.id);
-  };
-
-  const closeModal = () => {
-    setSelectedBook(null);
-    setBookDetails(null);
-  };
-
-  const addToFavorites = async (book) => {
-    try {
-      await booksApi.post("/favorites/add", { book: book.title });
-      setFavorites([...favorites, book]);
-      closeModal();
-    } catch (error) {
-      console.error("Error al añadir libro a favoritos:", error);
-    }
-  };
-
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
-  };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
     <div className="container mx-auto p-4">
@@ -81,8 +81,6 @@ const Books = ({ favorites, setFavorites }) => {
         <input
           type="text"
           placeholder="Buscar libros por título..."
-          value={searchTerm}
-          onChange={handleSearch}
           className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
@@ -98,8 +96,7 @@ const Books = ({ favorites, setFavorites }) => {
         {books.map((book, index) => (
           <div
             key={index}
-            className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition flex flex-col items-center cursor-pointer"
-            onClick={() => openModal(book)}
+            className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition flex flex-col items-center"
           >
             <img
               src={book.image || "/placeholder.png"}
@@ -117,38 +114,8 @@ const Books = ({ favorites, setFavorites }) => {
       {loading && (
         <p className="text-center text-gray-500">Cargando más libros...</p>
       )}
-
-      {selectedBook && bookDetails && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-96 relative">
-            <button
-              onClick={closeModal}
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-800"
-            >
-              ✕
-            </button>
-            <img
-              src={bookDetails.thumbnail_url || "/placeholder.png"}
-              alt={bookDetails.title}
-              className="w-40 h-60 object-cover mx-auto mb-4"
-            />
-            <h2 className="text-2xl font-bold mb-2 text-center">
-              {bookDetails.title}
-            </h2>
-            <p className="text-gray-700 mb-2 text-center">
-              Autor: {bookDetails.author}
-            </p>
-            <p className="text-gray-500 mb-4 text-center">
-              Publicado: {bookDetails.publish_date}
-            </p>
-            <button
-              onClick={() => addToFavorites(selectedBook)}
-              className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition"
-            >
-              Añadir a Favoritos
-            </button>
-          </div>
-        </div>
+      {!hasMore && (
+        <p className="text-center text-gray-500">No hay más libros para mostrar.</p>
       )}
     </div>
   );

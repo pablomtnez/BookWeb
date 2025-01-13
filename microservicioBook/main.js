@@ -90,21 +90,14 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  *       500:
  *         description: Error al cargar los datos
  */
-app.get("/books/uploadData", async (req, res) => {
+app.get('/books/uploadData', async (req, res) => {
   try {
-    const data = JSON.parse(fs.readFileSync("./data/book.json", "utf8"));
-
-    // Limpia los datos antes de insertarlos
-    const cleanedData = data["Books dataset"].map((book) => ({
-      ...book,
-      pages: isNaN(Number(book.pages)) ? null : Number(book.pages), // Convertir a número o asignar null
-    }));
-
+    const data = JSON.parse(fs.readFileSync('./data/book.json', 'utf8'));
     await Book.deleteMany({});
-    await Book.insertMany(cleanedData);
+    await Book.insertMany(data["Books dataset"]);
     res.status(200).send({ message: "Datos cargados correctamente" });
   } catch (error) {
-    res.status(500).send({ error: error.message });
+    res.status(500).json({ error: error.message });
   }
 });
 
