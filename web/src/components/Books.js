@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Modal from "react-modal"; // Importar react-modal
 import { booksApi } from "../api";
+import { Link } from "react-router-dom"; // Importar Link para la navegación
 
 Modal.setAppElement("#root"); // Configuración del modal
 
@@ -115,7 +116,7 @@ const Books = ({ favorites, setFavorites }) => {
         {filteredBooks.map((book, index) => (
           <div
             key={index}
-            className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition flex flex-col items-center cursor-pointer"
+            className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition flex flex-col items-center"
             onClick={() => openModal(book)} // Abre el modal al hacer clic en un libro
           >
             <img
@@ -136,6 +137,12 @@ const Books = ({ favorites, setFavorites }) => {
             <p className="text-gray-700 text-sm text-center">
               ISBN: {book.isbn || "No disponible"}
             </p>
+            <button
+              onClick={() => addToFavorites(book)}
+              className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+            >
+              Añadir a Favoritos
+            </button>
           </div>
         ))}
       </div>
@@ -164,6 +171,15 @@ const Books = ({ favorites, setFavorites }) => {
       {loading && (
         <p className="text-center text-gray-500">Cargando libros...</p>
       )}
+
+      {/* Botón para ir a la página de Favoritos */}
+      <div className="flex justify-center mt-6">
+        <Link to="/favorites">
+          <button className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition">
+            Ver Favoritos
+          </button>
+        </Link>
+      </div>
 
       {/* Modal para mostrar información del libro */}
       {selectedBook && (
