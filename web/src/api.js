@@ -15,7 +15,7 @@ export const authApi = axios.create({
 
 // Configuración para el microservicio de libros
 export const booksApi = axios.create({
-  baseURL: "http://localhost:9000/api/books", // Microservicio de libros
+  baseURL: "http://localhost:9000", // Cambiado al endpoint raíz del backend
   ...baseConfig,
 });
 
