@@ -127,7 +127,7 @@ const Books = ({ favorites, setFavorites }) => {
             <img
               src={
                 book.id
-                  ? `https://covers.openlibrary.org/b/olid/${book.id}-M.jpg`
+                  ? `/proxy/images/${book.id}` // Usa el proxy configurado en el backend
                   : "/placeholder.png" // Usa un placeholder si no hay OLID
               }
               alt={book.title || "Título no disponible"}
