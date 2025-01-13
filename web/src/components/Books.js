@@ -126,10 +126,10 @@ const Books = ({ favorites, setFavorites }) => {
           >
             <img
               src={
-                book.id
-                  ? `/proxy/images/${book.id}` // Usa el proxy configurado en el backend
-                  : "/placeholder.png" // Usa un placeholder si no hay OLID
-              }
+                book.isbn
+                  ? `/proxy/images/${book.isbn}` // Usa el proxy con ISBN
+                  : "/placeholder.png" // Usa un placeholder si no hay ISBN
+              }              
               alt={book.title || "Título no disponible"}
               className="w-32 h-48 object-cover rounded mb-4"
             />
