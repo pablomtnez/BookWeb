@@ -15,7 +15,7 @@ async function fetchBooks(page, limit) {
     });
     return response.data.docs;
   } catch (error) {
-    console.error(`Error al obtener libros: ${error.message}`);
+    console.error(`Error al obtener libros en la página ${page}: ${error.message}`);
     return [];
   }
 }
@@ -27,7 +27,7 @@ function cleanData(book) {
     title: book.title || "Unknown",
     author: book.author_name ? book.author_name[0] : "Unknown",
     publish_date: book.first_publish_year || "Unknown",
-    pages: isNaN(Number(book.number_of_pages_median)) ? null : Number(book.number_of_pages_median), // Convertir a número o null
+    pages: isNaN(Number(book.number_of_pages_median)) ? null : Number(book.number_of_pages_median),
     genre: book.subject ? book.subject[0] : "Unknown",
     language: book.language ? book.language[0] : "Unknown",
   };
@@ -36,22 +36,27 @@ function cleanData(book) {
 // Generar archivo JSON con libros
 async function generateBooksJson() {
   const booksDataset = [];
-  const totalBooks = 10000;
-  const batchSize = 100;
+  const totalBooks = 10000; // Cantidad total de libros que queremos
+  const batchSize = 100; // Tamaño del lote
+  const maxParallelRequests = 10; // Número máximo de solicitudes paralelas
 
   console.log("Iniciando recopilación de libros...");
 
-  for (let i = 1; booksDataset.length < totalBooks; i++) {
-    console.log(`Obteniendo libros de la página ${i}`);
-    const books = await fetchBooks(i, batchSize);
+  // Crea un array de promesas para procesar solicitudes en paralelo
+  const promises = [];
+  for (let i = 1; i <= Math.ceil(totalBooks / batchSize); i++) {
+    promises.push(fetchBooks(i, batchSize));
 
-    if (books.length === 0) break;
-
-    books.forEach((book) => {
-      if (booksDataset.length < totalBooks) {
-        booksDataset.push(cleanData(book));
-      }
-    });
+    // Ejecuta en paralelo hasta `maxParallelRequests`
+    if (promises.length === maxParallelRequests || i === Math.ceil(totalBooks / batchSize)) {
+      const results = await Promise.all(promises);
+      results.flat().forEach((book) => {
+        if (booksDataset.length < totalBooks) {
+          booksDataset.push(cleanData(book));
+        }
+      });
+      promises.length = 0; // Limpia las promesas
+    }
   }
 
   const finalData = { "Books dataset": booksDataset };
