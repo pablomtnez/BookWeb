@@ -1,123 +1,49 @@
 const express = require("express");
-const app = express();
 const fs = require("fs");
-const connectDB = require("./config/db");
 const mongoose = require("mongoose");
+const dotenv = require("dotenv");
 const swaggerUi = require("swagger-ui-express");
-const port = process.env.PORT || 9000;
+const swaggerJsdoc = require("swagger-jsdoc");
 
-// Conectar a MongoDB
+// Cargar configuración desde .env
+dotenv.config();
+
+// Conectar a la base de datos
+const connectDB = require("./config/db");
 connectDB();
 
-// Definir esquema de Mongoose
+// Definir esquema y modelo de Mongoose
 const BookSchema = new mongoose.Schema({
   id: String,
   title: String,
   author: String,
-  year: Number,
-  genre: String,
+  publish_date: String,
   pages: Number,
+  genre: String,
+  language: String,
 });
 
-// Crear modelo de Mongoose
 const Book = mongoose.model("Book", BookSchema);
 
-/**
- * @swagger
- * /books/uploadData:
- *   get:
- *     description: Uploads the data from the file book.json into the database
- *     responses:
- *       200:
- *         description: Data uploaded successfully
- *       500:
- *         description: Error uploading the data
- */
-app.get("/books/uploadData", async (req, res) => {
-  try {
-    // Leer datos del archivo
-    const data = fs.readFileSync("./data/book.json", "utf8");
-    const jsonData = JSON.parse(data);
+// Inicializar Express
+const app = express();
+app.use(express.json());
 
-    if (!Array.isArray(jsonData)) {
-      throw new TypeError("The data is not an array");
-    }
-
-    // Eliminar todos los datos de la base de datos
-    await Book.deleteMany({});
-
-    // Insertar nuevos datos en la base de datos
-    await Book.insertMany(jsonData);
-
-    console.log("Data uploaded successfully");
-    res.send("Data uploaded successfully");
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * @swagger
- * /books/getAll:
- *   get:
- *     description: Get all the books from the database
- *     responses:
- *       200:
- *         description: Data retrieved successfully
- *       500:
- *         description: Error retrieving the data
- */
-app.get("/books/getAll", async (req, res) => {
-  try {
-    const books = await Book.find();
-    console.log(books.length + " elements retrieved successfully");
-    res.json(books);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * @swagger
- * /books/id/{bookID}:
- *   get:
- *     description: Get the data from the database by ID
- *     parameters:
- *       - in: path
- *         name: bookID
- *         schema:
- *           type: string
- *         required: true
- *         description: The ID of the book
- *     responses:
- *       200:
- *         description: Data retrieved successfully
- *       404:
- *         description: Book not found
- *       500:
- *         description: Error retrieving the data
- */
-app.get("/books/id/:bookID", async (req, res) => {
-  try {
-    const book = await Book.findOne({ id: req.params.bookID });
-    if (!book) {
-      return res.status(404).json({ error: "Book not found" });
-    }
-    res.json(book);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Agregar Swagger para la documentación
+// Configuración de Swagger
 const swaggerOptions = {
   swaggerDefinition: {
     openapi: "3.0.0",
     info: {
       title: "Books API",
       version: "1.0.0",
-      description: "Books API documentation",
+      description: "API para gestionar libros usando MongoDB y Express",
     },
+    servers: [
+      {
+        url: "http://localhost:9000",
+        description: "Servidor local",
+      },
+    ],
     components: {
       schemas: {
         Book: {
@@ -126,21 +52,115 @@ const swaggerOptions = {
             id: { type: "string" },
             title: { type: "string" },
             author: { type: "string" },
-            year: { type: "number" },
-            genre: { type: "string" },
+            publish_date: { type: "string" },
             pages: { type: "number" },
+            genre: { type: "string" },
+            language: { type: "string" },
           },
         },
       },
     },
   },
-  apis: [__filename],
+  apis: ["./main.js"], // Ubicación de las anotaciones Swagger
 };
 
-const swaggerSpec = require("swagger-jsdoc")(swaggerOptions);
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+const swaggerDocs = swaggerJsdoc(swaggerOptions);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+
+/**
+ * @swagger
+ * /books/uploadData:
+ *   get:
+ *     summary: Carga los datos desde el archivo book.json a la base de datos
+ *     responses:
+ *       200:
+ *         description: Datos cargados correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Datos cargados correctamente
+ *       500:
+ *         description: Error al cargar los datos
+ */
+app.get("/books/uploadData", async (req, res) => {
+  try {
+    const data = JSON.parse(fs.readFileSync("./data/book.json", "utf8"));
+    await Book.deleteMany({});
+    await Book.insertMany(data["Books dataset"]);
+    res.status(200).send({ message: "Datos cargados correctamente" });
+  } catch (error) {
+    res.status(500).send({ error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /books/getAll:
+ *   get:
+ *     summary: Obtiene todos los libros de la base de datos
+ *     responses:
+ *       200:
+ *         description: Libros obtenidos correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Book'
+ *       500:
+ *         description: Error al obtener los libros
+ */
+app.get("/books/getAll", async (req, res) => {
+  try {
+    const books = await Book.find();
+    res.status(200).json(books);
+  } catch (error) {
+    res.status(500).send({ error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /books/id/{bookID}:
+ *   get:
+ *     summary: Busca un libro por su ID
+ *     parameters:
+ *       - in: path
+ *         name: bookID
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del libro a buscar
+ *     responses:
+ *       200:
+ *         description: Libro encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Book'
+ *       404:
+ *         description: Libro no encontrado
+ *       500:
+ *         description: Error al buscar el libro
+ */
+app.get("/books/id/:bookID", async (req, res) => {
+  try {
+    const book = await Book.findOne({ id: req.params.bookID });
+    if (!book) {
+      return res.status(404).send({ error: "Libro no encontrado" });
+    }
+    res.status(200).json(book);
+  } catch (error) {
+    res.status(500).send({ error: error.message });
+  }
+});
 
 // Iniciar el servidor
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+const PORT = process.env.PORT || 9000;
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
