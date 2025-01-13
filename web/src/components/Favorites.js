@@ -22,9 +22,10 @@ const Favorites = () => {
             Authorization: `Bearer ${token}`,
           },
         });
+        console.log("[LOG] Favoritos cargados:", response.data.favorites);
         setFavorites(response.data.favorites || []);
       } catch (error) {
-        console.error("Error al cargar favoritos:", error);
+        console.error("[ERROR] Error al cargar favoritos:", error);
         setMessage("No se pudieron cargar los favoritos. Por favor, inténtalo de nuevo.");
       }
     };
@@ -35,16 +36,23 @@ const Favorites = () => {
   const removeFavorite = async (book) => {
     try {
       const token = localStorage.getItem("token");
+      if (!token) {
+        setMessage("Debes iniciar sesión para eliminar favoritos.");
+        navigate("/auth");
+        return;
+      }
+
       await booksApi.delete("/favorites/delete", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
         data: { book },
       });
-      setFavorites(favorites.filter((fav) => fav !== book));
-      setMessage(`El libro "${book}" ha sido eliminado de tus favoritos.`);
+      console.log("[LOG] Libro eliminado de favoritos:", book);
+      setFavorites(favorites.filter((fav) => fav.title !== book.title));
+      setMessage(`El libro "${book.title}" ha sido eliminado de tus favoritos.`);
     } catch (error) {
-      console.error("Error al eliminar el favorito:", error);
+      console.error("[ERROR] Error al eliminar el favorito:", error);
       setMessage("No se pudo eliminar el libro. Inténtalo nuevamente.");
     }
   };
@@ -84,10 +92,10 @@ const Favorites = () => {
                 Autor: {book.author}
               </p>
               <p className="text-gray-500 text-sm text-center">
-                Género: {book.genre}
+                Género: {book.genre || "No especificado"}
               </p>
               <button
-                onClick={() => removeFavorite(book.title)}
+                onClick={() => removeFavorite(book)}
                 className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition"
               >
                 Eliminar de Favoritos

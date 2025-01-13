@@ -66,11 +66,34 @@ const Books = ({ favorites, setFavorites }) => {
     setIsModalOpen(false);
   };
 
-  // Añadir un libro a favoritos
-  const addToFavorites = (book) => {
-    setFavorites((prevFavorites) => [...prevFavorites, book]);
-    console.log("[LOG] Libro añadido a favoritos:", book);
-    closeModal();
+  // Función para añadir un libro a favoritos
+  const addToFavorites = async (book) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.error("[ERROR] No hay un token disponible. Inicia sesión.");
+        return;
+      }
+
+      const response = await booksApi.post(
+        "/favorites/add",
+        { book },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      console.log("[LOG] Respuesta del backend:", response.data);
+      alert(`"${book.title}" añadido a favoritos.`);
+
+      // Actualiza la lista de favoritos en el estado
+      setFavorites((prevFavorites) => [...prevFavorites, book]);
+    } catch (error) {
+      console.error("[ERROR] Error al añadir a favoritos:", error);
+      alert("Error al añadir a favoritos. Inténtalo de nuevo.");
+    } finally {
+      closeModal();
+    }
   };
 
   return (

@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from passlib.context import CryptContext
 import jwt
 import datetime
@@ -68,10 +68,10 @@ class Token(BaseModel):
     token_type: str
 
 class AddFavoriteBook(BaseModel):
-    book: str
+    book: str = Field(..., min_length=1, max_length=255, description="Título del libro a agregar.")
 
 class DeleteFavoriteBook(BaseModel):
-    book: str
+    book: str = Field(..., min_length=1, max_length=255, description="Título del libro a eliminar.")
 
 # Funciones Auxiliares
 def get_password_hash(password: str) -> str:
@@ -140,6 +140,15 @@ async def add_favorite_book(favorite: AddFavoriteBook, username: str = Depends(g
         if not user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado.")
 
+        # Verificar si el libro ya está en favoritos
+        cursor.execute(
+            "SELECT id FROM favorites WHERE user_id = %s AND book = %s",
+            (user[0], favorite.book),
+        )
+        existing_favorite = cursor.fetchone()
+        if existing_favorite:
+            raise HTTPException(status_code=400, detail="El libro ya está en favoritos.")
+
         cursor.execute(
             "INSERT INTO favorites (user_id, book) VALUES (%s, %s)",
             (user[0], favorite.book),
@@ -156,6 +165,15 @@ async def delete_favorite_book(favorite: DeleteFavoriteBook, username: str = Dep
         user = cursor.fetchone()
         if not user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+        # Verificar si el libro existe en favoritos
+        cursor.execute(
+            "SELECT id FROM favorites WHERE user_id = %s AND book = %s",
+            (user[0], favorite.book),
+        )
+        existing_favorite = cursor.fetchone()
+        if not existing_favorite:
+            raise HTTPException(status_code=404, detail="El libro no está en favoritos.")
 
         cursor.execute(
             "DELETE FROM favorites WHERE user_id = %s AND book = %s",
@@ -178,3 +196,9 @@ async def get_favorite_books(username: str = Depends(get_current_user)):
         favorites = cursor.fetchall()
         logger.info(f"Favoritos recuperados para {username}.")
     return {"favorites": [f[0] for f in favorites]}
+
+# Cerrar conexión al apagar la aplicación
+@app.on_event("shutdown")
+def shutdown_event():
+    db_connection.close()
+    logger.info("Conexión a la base de datos cerrada.")
