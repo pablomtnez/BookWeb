@@ -180,9 +180,16 @@ app.get('/books/uploadData', async (req, res) => {
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Book'
+ *               type: object
+ *               properties:
+ *                 books:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Book'
+ *                 totalPages:
+ *                   type: integer
+ *                 totalBooks:
+ *                   type: integer
  *       500:
  *         description: Error al obtener los libros
  */
@@ -192,11 +199,20 @@ app.get("/books/getAll", async (req, res) => {
   const limit = parseInt(req.query.limit) || 20;
 
   try {
+    const totalBooks = await Book.countDocuments();
+    const totalPages = Math.ceil(totalBooks / limit);
+
     const books = await Book.find()
       .skip((page - 1) * limit)
       .limit(limit);
+
     console.log(`[LOG] ${books.length} libros encontrados en la página ${page}`);
-    res.status(200).json(books);
+
+    res.status(200).json({
+      books,
+      totalPages,
+      totalBooks
+    });
   } catch (error) {
     console.error("[ERROR] Error al obtener libros:", error.message);
     res.status(500).send({ error: error.message });
