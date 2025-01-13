@@ -26,7 +26,6 @@ const BookSchema = new mongoose.Schema({
   language: String,
 });
 
-
 const Book = mongoose.model("Book", BookSchema);
 
 // Inicializar Express
@@ -91,16 +90,25 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  *         description: Error al cargar los datos
  */
 app.get('/books/uploadData', async (req, res) => {
+  console.log("[LOG] GET /books/uploadData - Iniciando carga de datos");
   try {
     const data = JSON.parse(fs.readFileSync('./data/book.json', 'utf8'));
+    if (!data["Books dataset"] || !Array.isArray(data["Books dataset"])) {
+      console.error("[ERROR] Formato inválido en book.json");
+      return res.status(400).json({ error: "Formato inválido en book.json" });
+    }
+
     await Book.deleteMany({});
+    console.log("[LOG] Datos antiguos eliminados");
+
     await Book.insertMany(data["Books dataset"]);
+    console.log("[LOG] Datos nuevos insertados exitosamente");
     res.status(200).send({ message: "Datos cargados correctamente" });
   } catch (error) {
+    console.error("[ERROR] Error al cargar datos:", error.message);
     res.status(500).json({ error: error.message });
   }
 });
-
 
 /**
  * @swagger
@@ -120,10 +128,13 @@ app.get('/books/uploadData', async (req, res) => {
  *         description: Error al obtener los libros
  */
 app.get("/books/getAll", async (req, res) => {
+  console.log("[LOG] GET /books/getAll - Recuperando todos los libros");
   try {
     const books = await Book.find();
+    console.log(`[LOG] ${books.length} libros encontrados`);
     res.status(200).json(books);
   } catch (error) {
+    console.error("[ERROR] Error al obtener libros:", error.message);
     res.status(500).send({ error: error.message });
   }
 });
@@ -153,13 +164,17 @@ app.get("/books/getAll", async (req, res) => {
  *         description: Error al buscar el libro
  */
 app.get("/books/id/:bookID", async (req, res) => {
+  console.log(`[LOG] GET /books/id/${req.params.bookID} - Buscando libro`);
   try {
     const book = await Book.findOne({ id: req.params.bookID });
     if (!book) {
+      console.warn(`[WARN] Libro con ID ${req.params.bookID} no encontrado`);
       return res.status(404).send({ error: "Libro no encontrado" });
     }
+    console.log("[LOG] Libro encontrado:", book.title);
     res.status(200).json(book);
   } catch (error) {
+    console.error("[ERROR] Error al buscar libro:", error.message);
     res.status(500).send({ error: error.message });
   }
 });
@@ -167,5 +182,5 @@ app.get("/books/id/:bookID", async (req, res) => {
 // Iniciar el servidor
 const PORT = process.env.PORT || 9000;
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`[LOG] Servidor corriendo en http://localhost:${PORT}`);
 });
