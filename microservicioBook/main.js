@@ -18,10 +18,14 @@ const BookSchema = new mongoose.Schema({
   title: String,
   author: String,
   publish_date: String,
-  pages: Number,
+  pages: {
+    type: Number,
+    required: false, // Permite que el campo sea opcional
+  },
   genre: String,
   language: String,
 });
+
 
 const Book = mongoose.model("Book", BookSchema);
 
@@ -89,13 +93,21 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 app.get("/books/uploadData", async (req, res) => {
   try {
     const data = JSON.parse(fs.readFileSync("./data/book.json", "utf8"));
+
+    // Limpia los datos antes de insertarlos
+    const cleanedData = data["Books dataset"].map((book) => ({
+      ...book,
+      pages: isNaN(Number(book.pages)) ? null : Number(book.pages), // Convertir a número o asignar null
+    }));
+
     await Book.deleteMany({});
-    await Book.insertMany(data["Books dataset"]);
+    await Book.insertMany(cleanedData);
     res.status(200).send({ message: "Datos cargados correctamente" });
   } catch (error) {
     res.status(500).send({ error: error.message });
   }
 });
+
 
 /**
  * @swagger
