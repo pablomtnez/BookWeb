@@ -125,7 +125,11 @@ const Books = ({ favorites, setFavorites }) => {
             onClick={() => openModal(book)} // Abre el modal al hacer clic en un libro
           >
             <img
-              src={book.image || "/placeholder.png"}
+              src={
+                book.id
+                  ? `https://covers.openlibrary.org/b/olid/${book.id}-M.jpg`
+                  : "/placeholder.png" // Usa un placeholder si no hay OLID
+              }
               alt={book.title || "Título no disponible"}
               className="w-32 h-48 object-cover rounded mb-4"
             />
