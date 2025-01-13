@@ -24,6 +24,7 @@ async function fetchBooks(page, limit) {
 function cleanData(book) {
   return {
     id: book.key.split("/").pop(),
+    isbn: book.isbn ? book.isbn[0] : "Unknown", // Agregar campo ISBN
     title: book.title || "Unknown",
     author: book.author_name ? book.author_name[0] : "Unknown",
     publish_date: book.first_publish_year || "Unknown",

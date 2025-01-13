@@ -17,6 +17,7 @@ connectDB();
 // Definir esquema y modelo de Mongoose
 const BookSchema = new mongoose.Schema({
   id: String,
+  isbn: String, // Agregar campo ISBN
   title: String,
   author: String,
   publish_date: String,
@@ -64,6 +65,7 @@ const swaggerOptions = {
           type: "object",
           properties: {
             id: { type: "string" },
+            isbn: { type: "string" },
             title: { type: "string" },
             author: { type: "string" },
             publish_date: { type: "string" },
@@ -81,19 +83,26 @@ const swaggerOptions = {
 const swaggerDocs = swaggerJsdoc(swaggerOptions);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
-// Ruta para servir imágenes como proxy
-app.get("/proxy/images/:olid", async (req, res) => {
-  const { olid } = req.params;
-  const imageUrl = `https://covers.openlibrary.org/b/olid/${olid}-M.jpg`;
+// Ruta para servir imágenes usando ISBN
+app.get("/proxy/images/:isbn", async (req, res) => {
+  const { isbn } = req.params;
+  const imageUrl = `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg`;
+
+  console.log(`[LOG] Solicitando imagen desde: ${imageUrl}`); // Log de la URL
 
   try {
     const response = await fetch(imageUrl);
-    if (!response.ok) throw new Error("No se pudo obtener la imagen");
+    console.log(`[LOG] Respuesta desde Open Library: ${response.status} ${response.statusText}`); // Log de la respuesta
+
+    if (!response.ok) {
+      // Devuelve un placeholder si la imagen no existe
+      return res.status(200).sendFile(__dirname + "/path/to/placeholder.png");
+    }
 
     res.set("Content-Type", response.headers.get("content-type"));
-    response.body.pipe(res); // Enviar la imagen directamente
+    response.body.pipe(res); // Enviar la imagen directamente al cliente
   } catch (error) {
-    console.error("[ERROR] Error al obtener la imagen:", error.message);
+    console.error(`[ERROR] Error al obtener la imagen desde ${imageUrl}: ${error.message}`);
     res.status(500).send({ error: "Error al cargar la imagen" });
   }
 });
@@ -112,8 +121,8 @@ app.get("/proxy/images/:olid", async (req, res) => {
  *               type: object
  *               properties:
  *                 message:
- *                   type: string
- *                   example: Datos cargados correctamente
+ *                   type: "string"
+ *                   example: "Datos cargados correctamente"
  *       400:
  *         description: Archivo JSON inválido
  *       500:
@@ -129,7 +138,7 @@ app.get('/books/uploadData', async (req, res) => {
     }
 
     const validBooks = data["Books dataset"].filter(book =>
-      book.id && book.title && book.author
+      book.id && book.isbn && book.title && book.author
     );
 
     if (validBooks.length === 0) {
