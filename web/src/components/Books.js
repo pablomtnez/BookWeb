@@ -11,17 +11,19 @@ const Books = ({ favorites, setFavorites }) => {
   const [bookDetails, setBookDetails] = useState(null);
   const navigate = useNavigate();
 
-  const fetchBooks = async (page) => {
+  const fetchBooks = useCallback(async () => {
     try {
       setLoading(true);
       const response = await booksApi.get(`/books`, { params: { page, limit: 10 } });
-      setBooks((prevBooks) => [...prevBooks, ...response.data.books]);
+      setBooks((prevBooks) =>
+        searchTerm ? response.data.books : [...prevBooks, ...response.data.books]
+      );
     } catch (error) {
       console.error("Error al cargar los libros:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, searchTerm]);
 
   const fetchBookDetails = async (isbn) => {
     try {
@@ -33,18 +35,18 @@ const Books = ({ favorites, setFavorites }) => {
   };
 
   useEffect(() => {
-    fetchBooks(page);
-  }, [page]);
+    fetchBooks();
+  }, [fetchBooks]);
 
   const handleScroll = useCallback(() => {
     const scrollHeight = document.documentElement.scrollHeight;
     const scrollTop = document.documentElement.scrollTop;
     const clientHeight = window.innerHeight;
 
-    if (scrollHeight - scrollTop <= clientHeight + 50 && !loading) {
+    if (scrollHeight - scrollTop <= clientHeight + 50 && !loading && !searchTerm) {
       setPage((prevPage) => prevPage + 1);
     }
-  }, [loading]);
+  }, [loading, searchTerm]);
 
   useEffect(() => {
     window.addEventListener("scroll", handleScroll);
@@ -63,11 +65,7 @@ const Books = ({ favorites, setFavorites }) => {
 
   const addToFavorites = async (book) => {
     try {
-      await booksApi.post("/books/favorites", {
-        title: book.title,
-        author: book.author,
-        isbn: book.isbn,
-      });
+      await booksApi.post("/favorites/add", { book: book.title });
       setFavorites([...favorites, book]);
       closeModal();
     } catch (error) {
@@ -78,7 +76,7 @@ const Books = ({ favorites, setFavorites }) => {
   const searchBooks = async (query) => {
     try {
       const response = await booksApi.get(`/books/search/${query}`);
-      setBooks(response.data);
+      setBooks(response.data.books);
     } catch (error) {
       console.error("Error al buscar libros:", error);
     }
@@ -97,7 +95,6 @@ const Books = ({ favorites, setFavorites }) => {
 
   return (
     <div className="container mx-auto p-4 relative">
-      {/* Botón de Cerrar Sesión */}
       <button
         onClick={() => {
           localStorage.removeItem("token");
@@ -110,7 +107,6 @@ const Books = ({ favorites, setFavorites }) => {
 
       <h1 className="text-3xl font-bold mb-6 text-center">Libros</h1>
 
-      {/* Barra de búsqueda */}
       <div className="mb-6">
         <input
           type="text"
@@ -121,7 +117,6 @@ const Books = ({ favorites, setFavorites }) => {
         />
       </div>
 
-      {/* Enlace a Favoritos */}
       <Link
         to="/favorites"
         className="text-blue-500 hover:underline mb-4 block text-center"
@@ -129,7 +124,6 @@ const Books = ({ favorites, setFavorites }) => {
         Ver Favoritos →
       </Link>
 
-      {/* Lista de libros */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {books.map((book, index) => (
           <div
@@ -154,7 +148,6 @@ const Books = ({ favorites, setFavorites }) => {
         <p className="text-center text-gray-500">Cargando más libros...</p>
       )}
 
-      {/* Modal para detalles del libro */}
       {selectedBook && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-96 relative">

@@ -1,48 +1,160 @@
 import React, { useState } from "react";
 import { authApi } from "../api";
+import { useNavigate } from "react-router-dom"; // Importa useNavigate para redirección
 
 const Auth = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [isLogin, setIsLogin] = useState(true);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [message, setMessage] = useState("");
+  const navigate = useNavigate(); // Hook para redirección
 
-  const handleLogin = async () => {
+  // Validar correo electrónico
+  const isValidEmail = (email) => {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!formData.email || !formData.password || (!isLogin && !formData.name)) {
+      setMessage("Por favor, completa todos los campos.");
+      return;
+    }
+
+    if (!isValidEmail(formData.email)) {
+      setMessage("Por favor, introduce un correo electrónico válido.");
+      return;
+    }
+
+    if (!isLogin && formData.password !== formData.confirmPassword) {
+      setMessage("Las contraseñas no coinciden.");
+      return;
+    }
+
     try {
-      const response = await authApi.post("/login", { email, password });
-      localStorage.setItem("token", response.data.token);
-      alert("Inicio de sesión exitoso");
+      if (isLogin) {
+        const response = await authApi.post("/login", {
+          username: formData.email,
+          password: formData.password,
+        });
+        localStorage.setItem("token", response.data.access_token); // Guarda el token en localStorage
+        setMessage("Inicio de sesión exitoso.");
+        navigate("/books"); // Redirige a Books.js
+      } else {
+        const response = await authApi.post("/register", {
+          name: formData.name,
+          username: formData.email,
+          password: formData.password,
+        });
+        setMessage(response.data.message || "Registro exitoso.");
+      }
     } catch (error) {
-      console.error("Error al iniciar sesión:", error);
-      alert("Error al iniciar sesión");
+      const errorData = error.response?.data;
+      if (Array.isArray(errorData)) {
+        setMessage(errorData.map((err) => `${err.loc?.join(" -> ")}: ${err.msg}`).join(", "));
+      } else {
+        setMessage(
+          errorData?.detail || "Ocurrió un error, por favor intenta nuevamente."
+        );
+      }
     }
   };
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6 text-center">Iniciar Sesión</h1>
-      <div className="mb-6">
-        <input
-          type="email"
-          placeholder="Correo electrónico"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-4 py-2 border rounded-lg"
-        />
+    <div className="flex justify-center items-center min-h-screen bg-gray-100">
+      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">
+          {isLogin ? "Inicio de Sesión" : "Registro"}
+        </h2>
+        {message && (
+          <div className={`text-center font-medium mb-4 ${isLogin ? "text-green-500" : "text-red-500"}`}>
+            <p>{message}</p>
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {!isLogin && (
+            <div>
+              <label className="block text-gray-700 text-sm font-medium mb-2">
+                Nombre:
+              </label>
+              <input
+                type="text"
+                name="name"
+                placeholder="Introduce tu nombre"
+                value={formData.name}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+          <div>
+            <label className="block text-gray-700 text-sm font-medium mb-2">
+              Email:
+            </label>
+            <input
+              type="email"
+              name="email"
+              placeholder="Introduce tu correo electrónico"
+              value={formData.email}
+              onChange={handleInputChange}
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 text-sm font-medium mb-2">
+              Contraseña:
+            </label>
+            <input
+              type="password"
+              name="password"
+              placeholder="Introduce tu contraseña"
+              value={formData.password}
+              onChange={handleInputChange}
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          {!isLogin && (
+            <div>
+              <label className="block text-gray-700 text-sm font-medium mb-2">
+                Confirmar Contraseña:
+              </label>
+              <input
+                type="password"
+                name="confirmPassword"
+                placeholder="Repite tu contraseña"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+          <button
+            type="submit"
+            className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition duration-200"
+          >
+            {isLogin ? "Iniciar Sesión" : "Registrarse"}
+          </button>
+        </form>
+        <button
+          onClick={() => setIsLogin(!isLogin)}
+          className="mt-4 text-blue-500 hover:underline block text-center"
+        >
+          {isLogin
+            ? "¿No tienes cuenta? Regístrate"
+            : "¿Ya tienes cuenta? Inicia sesión"}
+        </button>
       </div>
-      <div className="mb-6">
-        <input
-          type="password"
-          placeholder="Contraseña"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full px-4 py-2 border rounded-lg"
-        />
-      </div>
-      <button
-        onClick={handleLogin}
-        className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
-      >
-        Iniciar Sesión
-      </button>
     </div>
   );
 };
