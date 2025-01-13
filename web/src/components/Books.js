@@ -14,9 +14,9 @@ const Books = ({ favorites, setFavorites }) => {
     try {
       setLoading(true);
       await booksApi.get("/books/uploadData");
-      console.log("Datos cargados correctamente");
+      console.log("[LOG] Datos cargados correctamente desde /books/uploadData");
     } catch (error) {
-      console.error("Error al cargar datos automáticamente:", error);
+      console.error("[ERROR] Error al cargar datos automáticamente:", error);
     } finally {
       setLoading(false);
     }
@@ -30,10 +30,11 @@ const Books = ({ favorites, setFavorites }) => {
       const response = await booksApi.get(`/books/getAll`, {
         params: { page, limit: 20 },
       });
+      console.log("[LOG] Libros recibidos del backend:", response.data);
       setBooks((prevBooks) => [...prevBooks, ...response.data]);
       setHasMore(response.data.length > 0);
     } catch (error) {
-      console.error("Error al cargar los libros:", error);
+      console.error("[ERROR] Error al cargar los libros:", error);
     } finally {
       setLoading(false);
     }
@@ -42,7 +43,11 @@ const Books = ({ favorites, setFavorites }) => {
   // Inicializa los datos y carga los libros al montar el componente
   useEffect(() => {
     const initializeData = async () => {
-      await uploadData(); // Cargar datos automáticamente
+      try {
+        await uploadData(); // Cargar datos automáticamente
+      } catch (error) {
+        console.error("[ERROR] Error al cargar los datos iniciales:", error);
+      }
       await fetchBooks(); // Obtener libros después de cargar datos
     };
     initializeData();
@@ -50,10 +55,12 @@ const Books = ({ favorites, setFavorites }) => {
 
   // Maneja el scroll infinito
   const handleScroll = () => {
+    console.log("[LOG] Scroll detectado");
     if (
       window.innerHeight + document.documentElement.scrollTop >=
       document.documentElement.offsetHeight - 100
     ) {
+      console.log("[LOG] Cargando más libros...");
       setPage((prevPage) => prevPage + 1);
     }
   };
@@ -62,6 +69,11 @@ const Books = ({ favorites, setFavorites }) => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Log para verificar el estado de los libros
+  useEffect(() => {
+    console.log("[LOG] Estado de libros actualizado:", books);
+  }, [books]);
 
   return (
     <div className="container mx-auto p-4">
@@ -99,13 +111,13 @@ const Books = ({ favorites, setFavorites }) => {
             className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition flex flex-col items-center"
           >
             <img
-              src={book.image || "/placeholder.png"}
-              alt={book.title}
+              src={book.image || "/placeholder.png"} // Usa un placeholder si no hay imagen
+              alt={book.title || "Título no disponible"} // Valor por defecto para el título
               className="w-32 h-48 object-cover rounded mb-4"
             />
-            <h2 className="text-xl font-semibold text-center">{book.title}</h2>
+            <h2 className="text-xl font-semibold text-center">{book.title || "Sin título"}</h2>
             <p className="text-gray-700 text-sm text-center">
-              Autor: {book.author}
+              Autor: {book.author || "Autor desconocido"}
             </p>
           </div>
         ))}
