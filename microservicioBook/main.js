@@ -5,6 +5,7 @@ const dotenv = require("dotenv");
 const cors = require("cors"); // Importar cors
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
+const fetch = require("node-fetch"); // Importar node-fetch para manejar las solicitudes de las imágenes
 
 // Cargar configuración desde .env
 dotenv.config();
@@ -79,6 +80,23 @@ const swaggerOptions = {
 
 const swaggerDocs = swaggerJsdoc(swaggerOptions);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+
+// Ruta para servir imágenes como proxy
+app.get("/proxy/images/:olid", async (req, res) => {
+  const { olid } = req.params;
+  const imageUrl = `https://covers.openlibrary.org/b/olid/${olid}-M.jpg`;
+
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) throw new Error("No se pudo obtener la imagen");
+
+    res.set("Content-Type", response.headers.get("content-type"));
+    response.body.pipe(res); // Enviar la imagen directamente
+  } catch (error) {
+    console.error("[ERROR] Error al obtener la imagen:", error.message);
+    res.status(500).send({ error: "Error al cargar la imagen" });
+  }
+});
 
 /**
  * @swagger
