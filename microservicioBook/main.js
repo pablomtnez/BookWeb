@@ -86,6 +86,8 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  *                 message:
  *                   type: string
  *                   example: Datos cargados correctamente
+ *       400:
+ *         description: Archivo JSON inválido
  *       500:
  *         description: Error al cargar los datos
  */
@@ -98,10 +100,19 @@ app.get('/books/uploadData', async (req, res) => {
       return res.status(400).json({ error: "Formato inválido en book.json" });
     }
 
+    const validBooks = data["Books dataset"].filter(book =>
+      book.id && book.title && book.author
+    );
+
+    if (validBooks.length === 0) {
+      console.warn("[WARN] Ningún libro válido encontrado en book.json");
+      return res.status(400).json({ error: "Ningún libro válido en book.json" });
+    }
+
     await Book.deleteMany({});
     console.log("[LOG] Datos antiguos eliminados");
 
-    await Book.insertMany(data["Books dataset"]);
+    await Book.insertMany(validBooks);
     console.log("[LOG] Datos nuevos insertados exitosamente");
     res.status(200).send({ message: "Datos cargados correctamente" });
   } catch (error) {
@@ -114,7 +125,18 @@ app.get('/books/uploadData', async (req, res) => {
  * @swagger
  * /books/getAll:
  *   get:
- *     summary: Obtiene todos los libros de la base de datos
+ *     summary: Obtiene todos los libros de la base de datos con soporte para paginación
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Página actual
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Cantidad de libros por página
  *     responses:
  *       200:
  *         description: Libros obtenidos correctamente
@@ -129,9 +151,14 @@ app.get('/books/uploadData', async (req, res) => {
  */
 app.get("/books/getAll", async (req, res) => {
   console.log("[LOG] GET /books/getAll - Recuperando todos los libros");
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+
   try {
-    const books = await Book.find();
-    console.log(`[LOG] ${books.length} libros encontrados`);
+    const books = await Book.find()
+      .skip((page - 1) * limit)
+      .limit(limit);
+    console.log(`[LOG] ${books.length} libros encontrados en la página ${page}`);
     res.status(200).json(books);
   } catch (error) {
     console.error("[ERROR] Error al obtener libros:", error.message);
@@ -165,6 +192,11 @@ app.get("/books/getAll", async (req, res) => {
  */
 app.get("/books/id/:bookID", async (req, res) => {
   console.log(`[LOG] GET /books/id/${req.params.bookID} - Buscando libro`);
+  if (!req.params.bookID || typeof req.params.bookID !== "string") {
+    console.error("[ERROR] ID inválido proporcionado");
+    return res.status(400).send({ error: "ID inválido" });
+  }
+
   try {
     const book = await Book.findOne({ id: req.params.bookID });
     if (!book) {
