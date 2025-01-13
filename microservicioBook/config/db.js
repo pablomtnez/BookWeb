@@ -1,14 +1,12 @@
 const mongoose = require("mongoose");
 
 const connectDB = async () => {
-  const dbURI = process.env.MONGO_URI || "mongodb://localhost:27017/bookweb"; // URI de la base de datos
+  const dbURI = process.env.MONGO_URI || "mongodb://localhost:27017/bookweb";
 
   try {
     await mongoose.connect(dbURI, {
-      useNewUrlParser: true, // Usa el nuevo analizador de URL
-      useUnifiedTopology: true, // Usa el nuevo motor de topología unificada
-      useCreateIndex: true, // Crea índices automáticamente
-      useFindAndModify: false, // Usa findOneAndUpdate en lugar de findAndModify
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
     });
     console.log("✅ Conexión a MongoDB exitosa");
   } catch (err) {
