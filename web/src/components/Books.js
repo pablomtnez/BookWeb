@@ -14,19 +14,6 @@ const Books = ({ favorites, setFavorites }) => {
   const [page, setPage] = useState(1); // Página actual
   const [totalPages, setTotalPages] = useState(1); // Total de páginas
 
-  // Función para cargar datos en el backend automáticamente
-  const uploadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      await booksApi.get("/books/uploadData");
-      console.log("[LOG] Datos cargados correctamente desde /books/uploadData");
-    } catch (error) {
-      console.error("[ERROR] Error al cargar datos automáticamente:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   // Función para cargar libros desde el backend
   const fetchBooks = useCallback(async () => {
     setLoading(true);
@@ -45,18 +32,10 @@ const Books = ({ favorites, setFavorites }) => {
     }
   }, [page]);
 
-  // Inicializa los datos y carga los libros al montar el componente
+  // Inicializar y cargar libros al cambiar de página
   useEffect(() => {
-    const initializeData = async () => {
-      try {
-        await uploadData(); // Cargar datos automáticamente
-      } catch (error) {
-        console.error("[ERROR] Error al cargar los datos iniciales:", error);
-      }
-      await fetchBooks(); // Obtener libros después de cargar datos
-    };
-    initializeData();
-  }, [uploadData, fetchBooks]);
+    fetchBooks();
+  }, [fetchBooks, page]);
 
   // Filtrar libros según el texto de búsqueda
   useEffect(() => {
@@ -157,9 +136,6 @@ const Books = ({ favorites, setFavorites }) => {
 
       {loading && (
         <p className="text-center text-gray-500">Cargando libros...</p>
-      )}
-      {!hasMore && (
-        <p className="text-center text-gray-500">No hay más libros para mostrar.</p>
       )}
 
       {/* Modal para mostrar información del libro */}
