@@ -11,8 +11,8 @@ const Books = ({ favorites, setFavorites }) => {
   const [isModalOpen, setIsModalOpen] = useState(false); // Estado del modal
   const [searchQuery, setSearchQuery] = useState(""); // Estado del buscador
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1); // Página actual
+  const [totalPages, setTotalPages] = useState(1); // Total de páginas
 
   // Función para cargar datos en el backend automáticamente
   const uploadData = useCallback(async () => {
@@ -29,22 +29,21 @@ const Books = ({ favorites, setFavorites }) => {
 
   // Función para cargar libros desde el backend
   const fetchBooks = useCallback(async () => {
-    if (!hasMore || loading) return;
     setLoading(true);
     try {
       const response = await booksApi.get(`/books/getAll`, {
         params: { page, limit: 20 },
       });
       console.log("[LOG] Libros recibidos del backend:", response.data);
-      setBooks((prevBooks) => [...prevBooks, ...response.data]);
-      setFilteredBooks((prevBooks) => [...prevBooks, ...response.data]); // Inicializar los libros filtrados
-      setHasMore(response.data.length > 0);
+      setBooks(response.data.books);
+      setFilteredBooks(response.data.books); // Inicializar los libros filtrados
+      setTotalPages(response.data.totalPages); // Actualizar el total de páginas
     } catch (error) {
       console.error("[ERROR] Error al cargar los libros:", error);
     } finally {
       setLoading(false);
     }
-  }, [page, hasMore, loading]);
+  }, [page]);
 
   // Inicializa los datos y carga los libros al montar el componente
   useEffect(() => {
@@ -68,20 +67,12 @@ const Books = ({ favorites, setFavorites }) => {
     setFilteredBooks(filtered);
   }, [searchQuery, books]);
 
-  // Maneja el scroll infinito
-  const handleScroll = () => {
-    if (
-      window.innerHeight + document.documentElement.scrollTop >=
-      document.documentElement.offsetHeight - 100
-    ) {
-      setPage((prevPage) => prevPage + 1);
+  // Función para cambiar de página
+  const changePage = (newPage) => {
+    if (newPage > 0 && newPage <= totalPages) {
+      setPage(newPage);
     }
   };
-
-  useEffect(() => {
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   // Función para abrir el modal y mostrar el libro seleccionado
   const openModal = (book) => {
@@ -129,7 +120,7 @@ const Books = ({ favorites, setFavorites }) => {
                 book.isbn
                   ? `/proxy/images/${book.isbn}` // Usa el proxy con ISBN
                   : "/placeholder.png" // Usa un placeholder si no hay ISBN
-              }              
+              }
               alt={book.title || "Título no disponible"}
               className="w-32 h-48 object-cover rounded mb-4"
             />
@@ -143,8 +134,29 @@ const Books = ({ favorites, setFavorites }) => {
         ))}
       </div>
 
+      {/* Controles de paginación */}
+      <div className="flex justify-center items-center mt-6 space-x-4">
+        <button
+          onClick={() => changePage(page - 1)}
+          disabled={page === 1 || loading}
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300"
+        >
+          Anterior
+        </button>
+        <span className="text-lg font-semibold">
+          Página {page} de {totalPages}
+        </span>
+        <button
+          onClick={() => changePage(page + 1)}
+          disabled={page === totalPages || loading}
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300"
+        >
+          Siguiente
+        </button>
+      </div>
+
       {loading && (
-        <p className="text-center text-gray-500">Cargando más libros...</p>
+        <p className="text-center text-gray-500">Cargando libros...</p>
       )}
       {!hasMore && (
         <p className="text-center text-gray-500">No hay más libros para mostrar.</p>
