@@ -1,21 +1,23 @@
 {
-  "name": "microserviciobook",
+  "name": "books-api",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "API RESTful for managing books using MongoDB and Express.",
+  "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node main.js",
+    "dev": "nodemon main.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "mongoose": "^8.9.4",
-    "swagger-ui-express": "^5.0.1"
+    "books-api": "file:",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.2",
+    "mongoose": "^6.8.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^4.6.2"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9"
-  }
+    "nodemon": "^2.0.22"
+  },
+  "author": "Pablo",
+  "license": "ISC"
 }
