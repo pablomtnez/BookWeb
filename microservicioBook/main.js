@@ -72,6 +72,7 @@ const swaggerOptions = {
             pages: { type: "number" },
             genre: { type: "string" },
             language: { type: "string" },
+            synopsis: { type: "string" },
           },
         },
       },
