@@ -78,7 +78,7 @@ const Books = ({ favorites, setFavorites }) => {
 
       const response = await booksApi.post(
         "/favorites/add",
-        { book },
+        { bookId: book.id },
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -96,6 +96,31 @@ const Books = ({ favorites, setFavorites }) => {
       closeModal();
     }
   };
+
+  // Función para cargar favoritos al inicio
+  const fetchFavorites = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.error("[ERROR] No hay un token disponible. Inicia sesión.");
+        return;
+      }
+
+      const response = await booksApi.get("/favorites", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      console.log("[LOG] Favoritos recibidos del backend:", response.data);
+      setFavorites(response.data.favorites);
+    } catch (error) {
+      console.error("[ERROR] Error al cargar favoritos:", error);
+    }
+  }, [setFavorites]);
+
+  // Cargar favoritos al montar el componente
+  useEffect(() => {
+    fetchFavorites();
+  }, [fetchFavorites]);
 
   return (
     <div className="container mx-auto p-4">
@@ -138,7 +163,10 @@ const Books = ({ favorites, setFavorites }) => {
               ISBN: {book.isbn || "No disponible"}
             </p>
             <button
-              onClick={() => addToFavorites(book)}
+              onClick={(e) => {
+                e.stopPropagation(); // Evita que se abra el modal al hacer clic en el botón
+                addToFavorites(book);
+              }}
               className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
             >
               Añadir a Favoritos
@@ -183,46 +211,48 @@ const Books = ({ favorites, setFavorites }) => {
 
       {/* Modal para mostrar información del libro */}
       {selectedBook && (
-        <Modal
-          isOpen={isModalOpen}
-          onRequestClose={closeModal}
-          contentLabel="Información del Libro"
-          className="bg-white p-6 rounded-lg shadow-lg max-w-md mx-auto my-20"
-          overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center"
-        >
-          <button
-            onClick={closeModal}
-            className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
-          >
-            ✖
-          </button>
-          <h2 className="text-2xl font-bold mb-4">{selectedBook.title}</h2>
-          <p>
-            <strong>Autor:</strong> {selectedBook.author || "Desconocido"}
-          </p>
-          <p>
-            <strong>Fecha de publicación:</strong>{" "}
-            {selectedBook.publish_date || "Desconocida"}
-          </p>
-          <p>
-            <strong>Páginas:</strong> {selectedBook.pages || "No especificado"}
-          </p>
-          <p>
-            <strong>Género:</strong> {selectedBook.genre || "No especificado"}
-          </p>
-          <p>
-            <strong>Idioma:</strong> {selectedBook.language || "No especificado"}
-          </p>
-          <p>
-            <strong>ISBN:</strong> {selectedBook.isbn || "No disponible"}
-          </p>
-          <button
-            onClick={() => addToFavorites(selectedBook)}
-            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
-          >
-            Añadir a Favoritos
-          </button>
-        </Modal>
+       <Modal
+       isOpen={isModalOpen}
+       onRequestClose={closeModal}
+       contentLabel="Información del Libro"
+       className="bg-white p-6 rounded-lg shadow-lg max-w-lg mx-auto my-20 max-h-screen overflow-y-auto"
+       overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center"
+     >
+       <button
+         onClick={closeModal}
+         className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
+       >
+         ✖
+       </button>
+       <h2 className="text-2xl font-bold mb-4">{selectedBook.title}</h2>
+       <p>
+         <strong>Autor:</strong> {selectedBook.author || "Desconocido"}
+       </p>
+       <p>
+         <strong>Fecha de publicación:</strong> {selectedBook.publish_date || "Desconocida"}
+       </p>
+       <p>
+         <strong>Páginas:</strong> {selectedBook.pages || "No especificado"}
+       </p>
+       <p>
+         <strong>Género:</strong> {selectedBook.genre || "No especificado"}
+       </p>
+       <p>
+         <strong>Idioma:</strong> {selectedBook.language || "No especificado"}
+       </p>
+       <p>
+         <strong>ISBN:</strong> {selectedBook.isbn || "No disponible"}
+       </p>
+       <p>
+         <strong>Sinopsis:</strong> {selectedBook.synopsis || "No disponible"}
+       </p>
+       <button
+         onClick={() => addToFavorites(selectedBook)}
+         className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+       >
+         Añadir a Favoritos
+       </button>
+     </Modal>     
       )}
     </div>
   );
