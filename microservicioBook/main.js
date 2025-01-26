@@ -5,7 +5,7 @@ const dotenv = require("dotenv");
 const cors = require("cors"); // Importar cors
 const swaggerUi = require("swagger-ui-express");
 const swaggerJsdoc = require("swagger-jsdoc");
-const fetch = require("node-fetch"); // Importar node-fetch para manejar las solicitudes de las imágenes
+const axios = require("axios"); // Reemplazar node-fetch con axios
 
 // Cargar configuración desde .env
 dotenv.config();
@@ -93,20 +93,14 @@ app.get("/proxy/images/:isbn", async (req, res) => {
   console.log(`[LOG] Solicitando imagen desde: ${imageUrl}`); // Log de la URL
 
   try {
-    const response = await fetch(imageUrl);
-    if (!response.ok) {
-      console.warn(`[WARN] Imagen no encontrada para ISBN ${isbn}. Enviando placeholder.`);
-      return res.sendFile(__dirname + "/assets/placeholder.png"); // Ruta al placeholder
-    }
-
-    res.set("Content-Type", response.headers.get("content-type"));
-    response.body.pipe(res); // Enviar la imagen directamente al cliente
+    const response = await axios.get(imageUrl, { responseType: "stream" });
+    res.set("Content-Type", response.headers["content-type"]);
+    response.data.pipe(res); // Enviar la imagen directamente al cliente
   } catch (error) {
     console.error(`[ERROR] Error al obtener la imagen desde ${imageUrl}: ${error.message}`);
-    res.status(500).send({ error: "Error al cargar la imagen" });
+    res.status(500).sendFile(__dirname + "/assets/placeholder.png"); // Ruta al placeholder
   }
 });
-
 
 /**
  * @swagger
