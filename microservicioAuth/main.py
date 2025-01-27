@@ -45,7 +45,7 @@ app.add_middleware(
 async def preflight_handler():
     return {"message": "CORS preflight successful"}
 
-# Modelo Pydantic para usuarios
+# Modelos Pydantic
 class User(BaseModel):
     name: str
     username: str
@@ -90,7 +90,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     except DecodeError:
         raise HTTPException(status_code=401, detail="Token inválido.")
 
-# Conexión a la base de datos con manejador de contexto
+# Conexión a la base de datos
 async def get_db():
     db = pymysql.connect(
         host=os.getenv("DB_HOST", "localhost"),
@@ -105,7 +105,6 @@ async def get_db():
         db.close()
 
 # Endpoints
-
 @app.post("/register")
 async def register_user(user: User, db=Depends(get_db)):
     try:
@@ -141,64 +140,85 @@ async def login_user(login_request: LoginRequest, db=Depends(get_db)):
 
 @app.post("/favorites/add")
 async def add_favorite_book(favorite: AddFavoriteBook, username: str = Depends(get_current_user), db=Depends(get_db)):
-    with db.cursor() as cursor:
-        cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
-        user = cursor.fetchone()
-        if not user:
-            raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    try:
+        logger.info(f"[LOG] Usuario autenticado: {username}")
+        logger.info(f"[LOG] Intentando agregar el libro: {favorite.book}")
 
-        cursor.execute(
-            "SELECT id FROM favorites WHERE user_id = %s AND book = %s",
-            (user[0], favorite.book),
-        )
-        existing_favorite = cursor.fetchone()
-        if existing_favorite:
-            raise HTTPException(status_code=400, detail="El libro ya está en favoritos.")
+        with db.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            user = cursor.fetchone()
+            if not user:
+                raise HTTPException(status_code=404, detail="Usuario no encontrado.")
 
-        cursor.execute(
-            "INSERT INTO favorites (user_id, book) VALUES (%s, %s)",
-            (user[0], favorite.book),
-        )
-        db.commit()
-        logger.info(f"Libro {favorite.book} agregado a favoritos por {username}.")
-    return {"message": f"Libro '{favorite.book}' agregado a favoritos."}
+            cursor.execute(
+                "SELECT id FROM favorites WHERE user_id = %s AND book = %s",
+                (user[0], favorite.book),
+            )
+            existing_favorite = cursor.fetchone()
+            if existing_favorite:
+                raise HTTPException(status_code=400, detail="El libro ya está en favoritos.")
+
+            cursor.execute(
+                "INSERT INTO favorites (user_id, book) VALUES (%s, %s)",
+                (user[0], favorite.book),
+            )
+            db.commit()
+            logger.info(f"[LOG] Libro '{favorite.book}' agregado a favoritos por el usuario: {username}")
+        return {"message": f"Libro '{favorite.book}' agregado a favoritos."}
+    except Exception as e:
+        logger.error(f"[ERROR] Error en /favorites/add: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor.")
 
 @app.delete("/favorites/delete")
 async def delete_favorite_book(favorite: DeleteFavoriteBook, username: str = Depends(get_current_user), db=Depends(get_db)):
-    with db.cursor() as cursor:
-        cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
-        user = cursor.fetchone()
-        if not user:
-            raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    try:
+        logger.info(f"[LOG] Usuario autenticado: {username}")
+        logger.info(f"[LOG] Intentando eliminar el libro: {favorite.book}")
 
-        cursor.execute(
-            "SELECT id FROM favorites WHERE user_id = %s AND book = %s",
-            (user[0], favorite.book),
-        )
-        existing_favorite = cursor.fetchone()
-        if not existing_favorite:
-            raise HTTPException(status_code=404, detail="El libro no está en favoritos.")
+        with db.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            user = cursor.fetchone()
+            if not user:
+                raise HTTPException(status_code=404, detail="Usuario no encontrado.")
 
-        cursor.execute(
-            "DELETE FROM favorites WHERE user_id = %s AND book = %s",
-            (user[0], favorite.book),
-        )
-        db.commit()
-        logger.info(f"Libro {favorite.book} eliminado de favoritos por {username}.")
-    return {"message": f"Libro '{favorite.book}' eliminado de favoritos."}
+            cursor.execute(
+                "SELECT id FROM favorites WHERE user_id = %s AND book = %s",
+                (user[0], favorite.book),
+            )
+            existing_favorite = cursor.fetchone()
+            if not existing_favorite:
+                raise HTTPException(status_code=404, detail="El libro no está en favoritos.")
+
+            cursor.execute(
+                "DELETE FROM favorites WHERE user_id = %s AND book = %s",
+                (user[0], favorite.book),
+            )
+            db.commit()
+            logger.info(f"[LOG] Libro '{favorite.book}' eliminado de favoritos por el usuario: {username}")
+        return {"message": f"Libro '{favorite.book}' eliminado de favoritos."}
+    except Exception as e:
+        logger.error(f"[ERROR] Error en /favorites/delete: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor.")
 
 @app.get("/favorites")
 async def get_favorite_books(username: str = Depends(get_current_user), db=Depends(get_db)):
-    with db.cursor() as cursor:
-        cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
-        user = cursor.fetchone()
-        if not user:
-            raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    try:
+        logger.info(f"[LOG] Usuario autenticado: {username}")
+        logger.info("[LOG] Intentando recuperar favoritos.")
 
-        cursor.execute("SELECT book FROM favorites WHERE user_id = %s", (user[0],))
-        favorites = cursor.fetchall()
-        logger.info(f"Favoritos recuperados para {username}.")
-    return {"favorites": [f[0] for f in favorites]}
+        with db.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            user = cursor.fetchone()
+            if not user:
+                raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+            cursor.execute("SELECT book FROM favorites WHERE user_id = %s", (user[0],))
+            favorites = cursor.fetchall()
+            logger.info(f"[LOG] Favoritos recuperados para el usuario: {username}")
+        return {"favorites": [f[0] for f in favorites]}
+    except Exception as e:
+        logger.error(f"[ERROR] Error en /favorites: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor.")
 
 # Cerrar conexión al apagar la aplicación
 @app.on_event("shutdown")
