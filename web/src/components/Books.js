@@ -2,12 +2,12 @@ import React, { useState, useEffect, useCallback, useContext } from "react";
 import Modal from "react-modal";
 import { booksApi } from "../api";
 import { Link } from "react-router-dom";
-import { FavoritesContext } from "../FavoritesContext"; // Importar el contexto de favoritos
+import { FavoritesContext } from "../FavoritesContext";
 
 Modal.setAppElement("#root");
 
 const Books = () => {
-  const { favorites, addToFavorites } = useContext(FavoritesContext); // Acceso al contexto
+  const { favorites, addToFavorites } = useContext(FavoritesContext); // Usar favorites y addToFavorites
   const [books, setBooks] = useState([]);
   const [filteredBooks, setFilteredBooks] = useState([]);
   const [selectedBook, setSelectedBook] = useState(null);
@@ -17,7 +17,6 @@ const Books = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Función para cargar libros desde el backend
   const fetchBooks = useCallback(async () => {
     setLoading(true);
     try {
@@ -34,12 +33,10 @@ const Books = () => {
     }
   }, [page]);
 
-  // Inicializar y cargar libros al cambiar de página
   useEffect(() => {
     fetchBooks();
   }, [fetchBooks, page]);
 
-  // Filtrar libros según el texto de búsqueda
   useEffect(() => {
     const filtered = books.filter((book) =>
       book.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -48,30 +45,31 @@ const Books = () => {
     setFilteredBooks(filtered);
   }, [searchQuery, books]);
 
-  // Función para cambiar de página
   const changePage = (newPage) => {
     if (newPage > 0 && newPage <= totalPages) {
       setPage(newPage);
     }
   };
 
-  // Función para abrir el modal y mostrar el libro seleccionado
   const openModal = (book) => {
     setSelectedBook(book);
     setIsModalOpen(true);
   };
 
-  // Función para cerrar el modal
   const closeModal = () => {
     setSelectedBook(null);
     setIsModalOpen(false);
+  };
+
+  // Verificar si un libro está en favoritos
+  const isFavorite = (book) => {
+    return favorites.some((fav) => fav.title === book.title);
   };
 
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6 text-center">Libros</h1>
 
-      {/* Campo de búsqueda */}
       <div className="mb-6">
         <input
           type="text"
@@ -110,17 +108,21 @@ const Books = () => {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                addToFavorites(book); // Usar el contexto para añadir a favoritos
+                addToFavorites(book); // Añadir a favoritos
               }}
-              className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+              disabled={isFavorite(book)} // Deshabilitar si ya está en favoritos
+              className={`mt-4 px-4 py-2 rounded transition ${
+                isFavorite(book)
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-blue-500 text-white hover:bg-blue-600"
+              }`}
             >
-              Añadir a Favoritos
+              {isFavorite(book) ? "En Favoritos" : "Añadir a Favoritos"}
             </button>
           </div>
         ))}
       </div>
 
-      {/* Controles de paginación */}
       <div className="flex justify-center items-center mt-6 space-x-4">
         <button
           onClick={() => changePage(page - 1)}
@@ -145,7 +147,6 @@ const Books = () => {
         <p className="text-center text-gray-500">Cargando libros...</p>
       )}
 
-      {/* Botón para ir a la página de Favoritos */}
       <div className="flex justify-center mt-6">
         <Link to="/favorites">
           <button className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition">
@@ -154,7 +155,6 @@ const Books = () => {
         </Link>
       </div>
 
-      {/* Modal para mostrar información del libro */}
       {selectedBook && (
         <Modal
           isOpen={isModalOpen}
@@ -174,7 +174,8 @@ const Books = () => {
             <strong>Autor:</strong> {selectedBook.author || "Desconocido"}
           </p>
           <p>
-            <strong>Fecha de publicación:</strong> {selectedBook.publish_date || "Desconocida"}
+            <strong>Fecha de publicación:</strong>{" "}
+            {selectedBook.publish_date || "Desconocida"}
           </p>
           <p>
             <strong>Páginas:</strong> {selectedBook.pages || "No especificado"}
@@ -193,9 +194,14 @@ const Books = () => {
           </p>
           <button
             onClick={() => addToFavorites(selectedBook)}
-            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+            disabled={isFavorite(selectedBook)}
+            className={`mt-4 px-4 py-2 rounded transition ${
+              isFavorite(selectedBook)
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-500 text-white hover:bg-blue-600"
+            }`}
           >
-            Añadir a Favoritos
+            {isFavorite(selectedBook) ? "En Favoritos" : "Añadir a Favoritos"}
           </button>
         </Modal>
       )}
