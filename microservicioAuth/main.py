@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Form
 from pydantic import BaseModel, Field
 from passlib.context import CryptContext
 import jwt
@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 from jwt.exceptions import ExpiredSignatureError, DecodeError
 import logging
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel, OAuthFlowPassword
+from fastapi.security import OAuth2
 
 # Configuración de logs
 logging.basicConfig(level=logging.INFO)
@@ -25,8 +26,15 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 # Configuración de encriptación de contraseñas
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Configuración de OAuth2
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+# Configuración personalizada de OAuth2
+class CustomOAuth2PasswordBearer(OAuth2):
+    def __init__(self, tokenUrl: str):
+        flows = OAuthFlowsModel(
+            password=OAuthFlowPassword(tokenUrl=tokenUrl)
+        )
+        super().__init__(flows=flows)
+
+oauth2_scheme = CustomOAuth2PasswordBearer(tokenUrl="/login")
 
 # Inicializar FastAPI
 app = FastAPI()
@@ -45,15 +53,16 @@ app.add_middleware(
 async def preflight_handler():
     return {"message": "CORS preflight successful"}
 
-# Modelos Pydantic
+# Modelos Pydantic y modificaciones
 class User(BaseModel):
     name: str
     username: str
     password: str
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
+class LoginRequest:
+    def __init__(self, username: str = Form(...), password: str = Form(...)):
+        self.username = username
+        self.password = password
 
 class Token(BaseModel):
     access_token: str
@@ -128,15 +137,20 @@ async def register_user(user: User, db=Depends(get_db)):
 
 @app.post("/login", response_model=Token)
 async def login_user(login_request: LoginRequest, db=Depends(get_db)):
-    with db.cursor() as cursor:
-        cursor.execute("SELECT password_hash FROM users WHERE username = %s", (login_request.username,))
-        user = cursor.fetchone()
-        if not user or not verify_password(login_request.password, user[0]):
-            raise HTTPException(status_code=400, detail="Nombre de usuario o contraseña inválidos.")
+    try:
+        logger.info(f"[LOG] Intentando login con usuario: {login_request.username}")
+        with db.cursor() as cursor:
+            cursor.execute("SELECT password_hash FROM users WHERE username = %s", (login_request.username,))
+            user = cursor.fetchone()
+            if not user or not verify_password(login_request.password, user[0]):
+                raise HTTPException(status_code=400, detail="Nombre de usuario o contraseña inválidos.")
 
-        access_token = create_access_token(data={"sub": login_request.username})
-        logger.info(f"Usuario {login_request.username} inició sesión.")
-        return {"access_token": access_token, "token_type": "bearer"}
+            access_token = create_access_token(data={"sub": login_request.username})
+            logger.info(f"Usuario {login_request.username} inició sesión.")
+            return {"access_token": access_token, "token_type": "bearer"}
+    except Exception as e:
+        logger.error(f"[ERROR] Error en /login: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor.")
 
 @app.post("/favorites/add")
 async def add_favorite_book(favorite: AddFavoriteBook, username: str = Depends(get_current_user), db=Depends(get_db)):
