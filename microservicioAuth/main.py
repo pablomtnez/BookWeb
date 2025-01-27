@@ -53,7 +53,7 @@ app.add_middleware(
 async def preflight_handler():
     return {"message": "CORS preflight successful"}
 
-# Modelos Pydantic y modificaciones
+# Modelos Pydantic y ajustes
 class User(BaseModel):
     name: str
     username: str
@@ -136,17 +136,17 @@ async def register_user(user: User, db=Depends(get_db)):
         raise HTTPException(status_code=500, detail="Error interno del servidor.")
 
 @app.post("/login", response_model=Token)
-async def login_user(login_request: LoginRequest, db=Depends(get_db)):
+async def login_user(username: str = Form(...), password: str = Form(...), db=Depends(get_db)):
     try:
-        logger.info(f"[LOG] Intentando login con usuario: {login_request.username}")
+        logger.info(f"[LOG] Intentando login con usuario: {username}")
         with db.cursor() as cursor:
-            cursor.execute("SELECT password_hash FROM users WHERE username = %s", (login_request.username,))
+            cursor.execute("SELECT password_hash FROM users WHERE username = %s", (username,))
             user = cursor.fetchone()
-            if not user or not verify_password(login_request.password, user[0]):
+            if not user or not verify_password(password, user[0]):
                 raise HTTPException(status_code=400, detail="Nombre de usuario o contraseña inválidos.")
 
-            access_token = create_access_token(data={"sub": login_request.username})
-            logger.info(f"Usuario {login_request.username} inició sesión.")
+            access_token = create_access_token(data={"sub": username})
+            logger.info(f"Usuario {username} inició sesión.")
             return {"access_token": access_token, "token_type": "bearer"}
     except Exception as e:
         logger.error(f"[ERROR] Error en /login: {e}")
