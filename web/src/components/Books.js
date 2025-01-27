@@ -1,19 +1,21 @@
-import React, { useState, useEffect, useCallback } from "react";
-import Modal from "react-modal"; // Importar react-modal
+import React, { useState, useEffect, useCallback, useContext } from "react";
+import Modal from "react-modal";
 import { booksApi } from "../api";
-import { Link } from "react-router-dom"; // Importar Link para la navegación
+import { Link } from "react-router-dom";
+import { FavoritesContext } from "../FavoritesContext"; // Importar el contexto de favoritos
 
-Modal.setAppElement("#root"); // Configuración del modal
+Modal.setAppElement("#root");
 
-const Books = ({ favorites, setFavorites }) => {
+const Books = () => {
+  const { favorites, addToFavorites } = useContext(FavoritesContext); // Acceso al contexto
   const [books, setBooks] = useState([]);
-  const [filteredBooks, setFilteredBooks] = useState([]); // Libros filtrados
-  const [selectedBook, setSelectedBook] = useState(null); // Libro seleccionado
-  const [isModalOpen, setIsModalOpen] = useState(false); // Estado del modal
-  const [searchQuery, setSearchQuery] = useState(""); // Estado del buscador
+  const [filteredBooks, setFilteredBooks] = useState([]);
+  const [selectedBook, setSelectedBook] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1); // Página actual
-  const [totalPages, setTotalPages] = useState(1); // Total de páginas
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Función para cargar libros desde el backend
   const fetchBooks = useCallback(async () => {
@@ -22,10 +24,9 @@ const Books = ({ favorites, setFavorites }) => {
       const response = await booksApi.get(`/books/getAll`, {
         params: { page, limit: 20 },
       });
-      console.log("[LOG] Libros recibidos del backend:", response.data);
       setBooks(response.data.books);
-      setFilteredBooks(response.data.books); // Inicializar los libros filtrados
-      setTotalPages(response.data.totalPages); // Actualizar el total de páginas
+      setFilteredBooks(response.data.books);
+      setTotalPages(response.data.totalPages);
     } catch (error) {
       console.error("[ERROR] Error al cargar los libros:", error);
     } finally {
@@ -56,7 +57,6 @@ const Books = ({ favorites, setFavorites }) => {
 
   // Función para abrir el modal y mostrar el libro seleccionado
   const openModal = (book) => {
-    console.log("[LOG] Abriendo modal con libro:", book); // Depuración
     setSelectedBook(book);
     setIsModalOpen(true);
   };
@@ -67,61 +67,6 @@ const Books = ({ favorites, setFavorites }) => {
     setIsModalOpen(false);
   };
 
-  // Función para añadir un libro a favoritos
-  const addToFavorites = async (book) => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        console.error("[ERROR] No hay un token disponible. Inicia sesión.");
-        return;
-      }
-
-      const response = await booksApi.post(
-        "/favorites/add",
-        { bookId: book.id },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      console.log("[LOG] Respuesta del backend:", response.data);
-      alert(`"${book.title}" añadido a favoritos.`);
-
-      // Actualiza la lista de favoritos en el estado
-      setFavorites((prevFavorites) => [...prevFavorites, book]);
-    } catch (error) {
-      console.error("[ERROR] Error al añadir a favoritos:", error);
-      alert("Error al añadir a favoritos. Inténtalo de nuevo.");
-    } finally {
-      closeModal();
-    }
-  };
-
-  // Función para cargar favoritos al inicio
-  const fetchFavorites = useCallback(async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        console.error("[ERROR] No hay un token disponible. Inicia sesión.");
-        return;
-      }
-
-      const response = await booksApi.get("/favorites", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      console.log("[LOG] Favoritos recibidos del backend:", response.data);
-      setFavorites(response.data.favorites);
-    } catch (error) {
-      console.error("[ERROR] Error al cargar favoritos:", error);
-    }
-  }, [setFavorites]);
-
-  // Cargar favoritos al montar el componente
-  useEffect(() => {
-    fetchFavorites();
-  }, [fetchFavorites]);
-
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6 text-center">Libros</h1>
@@ -131,7 +76,7 @@ const Books = ({ favorites, setFavorites }) => {
         <input
           type="text"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)} // Actualiza el estado de búsqueda
+          onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Buscar libros por título, autor o ISBN..."
           className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
@@ -142,13 +87,13 @@ const Books = ({ favorites, setFavorites }) => {
           <div
             key={index}
             className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition flex flex-col items-center"
-            onClick={() => openModal(book)} // Abre el modal al hacer clic en un libro
+            onClick={() => openModal(book)}
           >
             <img
               src={
                 book.isbn
-                  ? `http://localhost:9000/proxy/images/${book.isbn}` // Asegúrate de que apunta al backend correcto
-                  : "/placeholder.png" // Usa un placeholder si no hay ISBN
+                  ? `http://localhost:9000/proxy/images/${book.isbn}`
+                  : "/placeholder.png"
               }
               alt={book.title || "Título no disponible"}
               className="w-32 h-48 object-cover rounded mb-4"
@@ -164,8 +109,8 @@ const Books = ({ favorites, setFavorites }) => {
             </p>
             <button
               onClick={(e) => {
-                e.stopPropagation(); // Evita que se abra el modal al hacer clic en el botón
-                addToFavorites(book);
+                e.stopPropagation();
+                addToFavorites(book); // Usar el contexto para añadir a favoritos
               }}
               className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
             >
@@ -211,48 +156,48 @@ const Books = ({ favorites, setFavorites }) => {
 
       {/* Modal para mostrar información del libro */}
       {selectedBook && (
-       <Modal
-       isOpen={isModalOpen}
-       onRequestClose={closeModal}
-       contentLabel="Información del Libro"
-       className="bg-white p-6 rounded-lg shadow-lg max-w-lg mx-auto my-20 max-h-screen overflow-y-auto"
-       overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center"
-     >
-       <button
-         onClick={closeModal}
-         className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
-       >
-         ✖
-       </button>
-       <h2 className="text-2xl font-bold mb-4">{selectedBook.title}</h2>
-       <p>
-         <strong>Autor:</strong> {selectedBook.author || "Desconocido"}
-       </p>
-       <p>
-         <strong>Fecha de publicación:</strong> {selectedBook.publish_date || "Desconocida"}
-       </p>
-       <p>
-         <strong>Páginas:</strong> {selectedBook.pages || "No especificado"}
-       </p>
-       <p>
-         <strong>Género:</strong> {selectedBook.genre || "No especificado"}
-       </p>
-       <p>
-         <strong>Idioma:</strong> {selectedBook.language || "No especificado"}
-       </p>
-       <p>
-         <strong>ISBN:</strong> {selectedBook.isbn || "No disponible"}
-       </p>
-       <p>
-         <strong>Sinopsis:</strong> {selectedBook.synopsis || "No disponible"}
-       </p>
-       <button
-         onClick={() => addToFavorites(selectedBook)}
-         className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
-       >
-         Añadir a Favoritos
-       </button>
-     </Modal>     
+        <Modal
+          isOpen={isModalOpen}
+          onRequestClose={closeModal}
+          contentLabel="Información del Libro"
+          className="bg-white p-6 rounded-lg shadow-lg max-w-lg mx-auto my-20 max-h-screen overflow-y-auto"
+          overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center"
+        >
+          <button
+            onClick={closeModal}
+            className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
+          >
+            ✖
+          </button>
+          <h2 className="text-2xl font-bold mb-4">{selectedBook.title}</h2>
+          <p>
+            <strong>Autor:</strong> {selectedBook.author || "Desconocido"}
+          </p>
+          <p>
+            <strong>Fecha de publicación:</strong> {selectedBook.publish_date || "Desconocida"}
+          </p>
+          <p>
+            <strong>Páginas:</strong> {selectedBook.pages || "No especificado"}
+          </p>
+          <p>
+            <strong>Género:</strong> {selectedBook.genre || "No especificado"}
+          </p>
+          <p>
+            <strong>Idioma:</strong> {selectedBook.language || "No especificado"}
+          </p>
+          <p>
+            <strong>ISBN:</strong> {selectedBook.isbn || "No disponible"}
+          </p>
+          <p>
+            <strong>Sinopsis:</strong> {selectedBook.synopsis || "No disponible"}
+          </p>
+          <button
+            onClick={() => addToFavorites(selectedBook)}
+            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+          >
+            Añadir a Favoritos
+          </button>
+        </Modal>
       )}
     </div>
   );
