@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { authApi } from "../api";
-import { useNavigate } from "react-router-dom"; // Importa useNavigate para redirección
+import { useNavigate } from "react-router-dom"; // Para redirección
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -44,11 +44,16 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        const response = await authApi.post("/login", {
-          username: formData.email,
-          password: formData.password,
+        // Enviar datos en formato x-www-form-urlencoded
+        const data = new URLSearchParams();
+        data.append("username", formData.email);
+        data.append("password", formData.password);
+
+        const response = await authApi.post("/login", data, {
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
         });
-        localStorage.setItem("token", response.data.access_token); // Guarda el token en localStorage
+
+        localStorage.setItem("token", response.data.access_token);
         setMessage("Inicio de sesión exitoso.");
         navigate("/books"); // Redirige a Books.js
       } else {
@@ -57,15 +62,22 @@ const Auth = () => {
           username: formData.email,
           password: formData.password,
         });
+
         setMessage(response.data.message || "Registro exitoso.");
       }
     } catch (error) {
       const errorData = error.response?.data;
+
+      // Evita el error "Objects are not valid as a React child"
       if (Array.isArray(errorData)) {
-        setMessage(errorData.map((err) => `${err.loc?.join(" -> ")}: ${err.msg}`).join(", "));
+        setMessage(
+          errorData.map((err) => `${err.loc?.join(" -> ")}: ${err.msg}`).join(", ")
+        );
       } else {
         setMessage(
-          errorData?.detail || "Ocurrió un error, por favor intenta nuevamente."
+          typeof errorData?.detail === "string"
+            ? errorData.detail
+            : "Ocurrió un error, por favor intenta nuevamente."
         );
       }
     }
