@@ -20,20 +20,23 @@ const Favorites = () => {
           No tienes libros en favoritos.
         </p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {favorites.map((book, index) => (
             <div
               key={index}
-              className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition flex flex-col items-center"
+              className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition flex flex-col items-center border border-gray-200"
             >
-              <img
-                src={book.image || "/placeholder.png"}
-                alt={book.title}
-                className="w-32 h-48 object-cover rounded mb-4"
-              />
+              <div className="w-40 h-56 mb-4 flex items-center justify-center bg-gray-100 rounded">
+                <img
+                  src={book.image ? book.image : "/placeholder.png"}
+                  alt={book.title}
+                  className="w-full h-full object-cover rounded"
+                  onError={(e) => (e.target.src = "/placeholder.png")} // Manejo de errores de imagen
+                />
+              </div>
               <h2 className="text-xl font-semibold text-center">{book.title}</h2>
               <p className="text-gray-700 text-sm text-center">
-                Autor: {book.author}
+                Autor: {book.author || "Desconocido"}
               </p>
               <p className="text-gray-500 text-sm text-center">
                 Género: {book.genre || "No especificado"}
