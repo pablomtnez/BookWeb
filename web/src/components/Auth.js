@@ -1,8 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { authApi } from "../api";
 import { useNavigate } from "react-router-dom"; // Para redirección
+import { FavoritesContext } from "../FavoritesContext"; // Importar el contexto de favoritos
 
 const Auth = () => {
+  const { fetchFavorites } = useContext(FavoritesContext); // Acceder a fetchFavorites
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     name: "",
@@ -55,6 +57,8 @@ const Auth = () => {
 
         localStorage.setItem("token", response.data.access_token);
         setMessage("Inicio de sesión exitoso.");
+
+        fetchFavorites(); // 🔹 Cargar favoritos después del login
         navigate("/books"); // Redirige a Books.js
       } else {
         const response = await authApi.post("/register", {

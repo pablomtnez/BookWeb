@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useState, useCallback } from "react";
 import { authApi } from "./api";
 
 export const FavoritesContext = createContext();
@@ -7,7 +7,7 @@ export const FavoritesProvider = ({ children }) => {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Función para cargar favoritos
+  // Función para cargar favoritos después del login
   const fetchFavorites = useCallback(async () => {
     try {
       setLoading(true);
@@ -33,7 +33,7 @@ export const FavoritesProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, []); // 🔹 Se eliminó `favorites` para evitar el warning sin generar un bucle infinito
+  }, []); // ✅ Se eliminó `favorites` de las dependencias para evitar loops innecesarios
 
   // Función para añadir a favoritos
   const addToFavorites = async (book) => {
@@ -73,11 +73,6 @@ export const FavoritesProvider = ({ children }) => {
       alert("Error al eliminar el favorito. Intenta nuevamente.");
     }
   };
-
-  // Cargar favoritos al iniciar
-  useEffect(() => {
-    fetchFavorites();
-  }, [fetchFavorites]); // ✅ Se mantiene la dependencia sin causar un bucle infinito
 
   return (
     <FavoritesContext.Provider
