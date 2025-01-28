@@ -27,12 +27,13 @@ const Favorites = () => {
               className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition flex flex-col items-center border border-gray-200"
             >
               <div className="w-40 h-56 mb-4 flex items-center justify-center bg-gray-100 rounded">
-                <img
-                  src={book.image ? book.image : "/placeholder.png"}
-                  alt={book.title}
-                  className="w-full h-full object-cover rounded"
-                  onError={(e) => (e.target.src = "/placeholder.png")} // Manejo de errores de imagen
-                />
+              <img
+                src={book.image || "/placeholder.png"}
+                alt={book.title}
+                className="w-32 h-48 object-cover rounded mb-4"
+                onError={(e) => (e.target.src = "/placeholder.png")} // Si la imagen no carga, usa un placeholder
+              />
+
               </div>
               <h2 className="text-xl font-semibold text-center">{book.title}</h2>
               <p className="text-gray-700 text-sm text-center">

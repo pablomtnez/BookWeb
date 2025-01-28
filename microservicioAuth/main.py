@@ -180,8 +180,8 @@ async def add_favorite_book(favorite: AddFavoriteBook, username: str = Depends(g
             )
             existing_favorite = cursor.fetchone()
             if existing_favorite:
-                raise HTTPException(status_code=400, detail="El libro ya está en favoritos.")
-
+                logger.warn(f"[WARN] El libro '{favorite.book}' ya está en favoritos para el usuario {username}.")
+                return {"message": f"El libro '{favorite.book}' ya está en favoritos."}
             cursor.execute(
                 "INSERT INTO favorites (user_id, book) VALUES (%s, %s)",
                 (user[0], favorite.book),
@@ -225,21 +225,26 @@ async def delete_favorite_book(favorite: DeleteFavoriteBook, username: str = Dep
         raise HTTPException(status_code=500, detail="Error interno del servidor.")
 
 @app.get("/favorites")
-async def get_favorite_books(username: str = Depends(get_current_user), db=Depends(get_db)):
+async def get_favorites(token: str = Depends(get_current_user), db=Depends(get_db)):
     try:
-        logger.info(f"[LOG] Usuario autenticado: {username}")
-        logger.info("[LOG] Intentando recuperar favoritos.")
-
         with db.cursor() as cursor:
-            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
-            user = cursor.fetchone()
-            if not user:
-                raise HTTPException(status_code=404, detail="Usuario no encontrado.")
-
-            cursor.execute("SELECT book FROM favorites WHERE user_id = %s", (user[0],))
+            cursor.execute("""
+                SELECT favorites.book, books.image, books.author, books.genre
+                FROM favorites
+                JOIN books ON favorites.book = books.title
+                WHERE favorites.user_id = (
+                    SELECT id FROM users WHERE username = %s
+                )
+            """, (token,))
             favorites = cursor.fetchall()
-            logger.info(f"[LOG] Favoritos recuperados para el usuario: {username}")
-        return {"favorites": [f[0] for f in favorites]}
+            
+            # Convertimos los datos en una lista de diccionarios
+            return {
+                "favorites": [
+                    {"title": f[0], "image": f[1], "author": f[2] or "Desconocido", "genre": f[3] or "No especificado"}
+                    for f in favorites
+                ]
+            }
     except Exception as e:
         logger.error(f"[ERROR] Error en /favorites: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor.")

@@ -17,10 +17,8 @@ export const FavoritesProvider = ({ children }) => {
       console.log("[LOG] Respuesta de la API /favorites:", response.data);
 
       // Verificamos si la respuesta tiene la estructura correcta
-      if (response.data.favorites) {
+      if (response.data.favorites && Array.isArray(response.data.favorites)) {
         setFavorites(response.data.favorites);
-      } else if (response.data.books) {
-        setFavorites(response.data.books);
       } else {
         console.warn("[WARN] Estructura inesperada en la respuesta de favoritos.");
         setFavorites([]);
@@ -53,8 +51,13 @@ export const FavoritesProvider = ({ children }) => {
       setFavorites((prev) => [...prev, book]);
       alert(`"${book.title}" ha sido añadido a favoritos.`);
     } catch (error) {
-      console.error("[ERROR] Error al añadir a favoritos:", error.response?.data || error.message);
-      alert("Error al añadir a favoritos. Intenta nuevamente.");
+      if (error.response?.status === 400) {
+        console.warn("[WARN] El libro ya estaba en favoritos.");
+        alert("Este libro ya está en tu lista de favoritos.");
+      } else {
+        console.error("[ERROR] Error al añadir a favoritos:", error.response?.data || error.message);
+        alert("Error al añadir a favoritos. Intenta nuevamente.");
+      }
     }
   };
 
