@@ -89,14 +89,24 @@ def create_access_token(data: dict) -> str:
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
+        logger.info(f"Token recibido en get_current_user: {token}")
+        
+        # Eliminar el prefijo "Bearer " si está presente
+        if token.startswith("Bearer "):
+            token = token.split(" ")[1]
+
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username = payload.get("sub")
         if username is None:
+            logger.error("El token no contiene 'sub'.")
             raise HTTPException(status_code=401, detail="Token inválido.")
+        
         return username
     except ExpiredSignatureError:
+        logger.error("El token ha expirado.")
         raise HTTPException(status_code=401, detail="El token ha expirado.")
     except DecodeError:
+        logger.error("Error al decodificar el token.")
         raise HTTPException(status_code=401, detail="Token inválido.")
 
 # Conexión a la base de datos
